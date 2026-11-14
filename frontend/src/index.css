@@ -441,3 +441,6 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* #/globe placeholder: the same plate as the 3D scene */
+.globe-stage .stage-loading a { color: var(--white); }
