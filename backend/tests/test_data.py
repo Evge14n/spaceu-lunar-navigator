@@ -98,6 +98,64 @@ def test_summary_agrees_with_counting_the_timeline_samples():
         assert summary["sun"]["max_el"] == pytest.approx(max(tl["sun"]["el"]), abs=1e-3)
 
 
+def test_mast_heights_are_reproduced_and_help():
+    """data/summary/heights.json: the year with the instrument at 1, 2, 5 and 10 m."""
+    table = load("summary/heights.json")
+    assert [row["site"]["id"] for row in table] == [s["id"] for s in SITES]
+    ets = ephem.to_et(ephem.time_grid(precompute.PERIOD_START, precompute.PERIOD_END, precompute.STEP_MIN))
+    for site, entry in zip(SITES, table, strict=True):
+        rows = entry["heights"]
+        assert [r["height_m"] for r in rows] == [1.0, 2.0, 5.0, 10.0]
+        assert entry["period"] == {"start": precompute.PERIOD_START, "end": precompute.PERIOD_END}
+        assert rows[1] == precompute.height_row(load(f"summary/{site['id']}.json"))
+        # a higher instrument looks over more of the terrain: never less Sun, never less Earth
+        for low, high in zip(rows[:-1], rows[1:], strict=True):
+            assert high["sun"]["lit_percent"] >= low["sun"]["lit_percent"]
+            assert high["sun"]["energy_kwh_m2"] >= low["sun"]["energy_kwh_m2"]
+            assert high["earth"]["visible_percent"] >= low["earth"]["visible_percent"]
+        for height in precompute.EXTRA_HEIGHTS_M:
+            mask = load(f"horizon/{site['id']}_h{height:g}.json")
+            base = load(f"horizon/{site['id']}.json")
+            assert mask["site"] == site["id"] and mask["height_m"] == height
+            diff = np.array(mask["elevation_deg"]) - np.array(base["elevation_deg"])
+            # the horizon sinks when the instrument rises (and the other way round)
+            assert (diff <= 0.0011).all() if height > 2.0 else (diff >= -0.0011).all()
+    # recompute two sites from the stored masks (needs only the SPICE kernels)
+    for site, entry in list(zip(SITES, table, strict=True))[:2]:
+        mask = load(f"horizon/{site['id']}_h10.json")
+        obs = precompute.observer_for(site, mask["elevation_deg"], 10.0)
+        again = precompute.height_row(metrics.summarize(obs, ets, metrics.sky_state(obs, ets)))
+        assert again == entry["heights"][3]
+
+
+def test_apollo_reference():
+    """data/reference/apollo11.json: an equatorial site for contrast (two weeks of night)."""
+    ref = load("reference/apollo11.json")
+    assert ref == precompute.reference_summary()
+    assert ref["site"]["terrain"] is False and (ref["site"]["lat"], ref["site"]["lon"]) == (0.67416, 23.47314)
+    assert 49.0 < ref["sun"]["lit_percent"] < 52.0
+    assert 350.0 < ref["sun"]["longest_dark_h"] < 356.0  # half a synodic month is 354.4 h
+    assert ref["sun"]["max_el"] > 88.0 and ref["earth"]["visible_percent"] == 100.0
+    # the best polar ridges have a longest night several times shorter than the equator
+    nights = sorted(load(f"summary/{s['id']}.json")["sun"]["longest_dark_h"] for s in SITES)
+    assert nights[0] < ref["sun"]["longest_dark_h"] / 4.0 and nights[2] < ref["sun"]["longest_dark_h"] / 2.0
+    best = max(load(f"summary/{s['id']}.json")["sun"]["energy_kwh_m2"] for s in SITES)
+    assert best > 1.5 * ref["sun"]["energy_kwh_m2"]
+
+
+@pytest.mark.raw
+def test_mast_horizons_are_reproduced_from_the_rasters():
+    from backend import horizon
+
+    site = SITES[1]
+    result = horizon.horizon_mask(
+        precompute.site_surface(site), site["lat"], site["lon"], 10.0, site["elevation_m"]
+    )
+    assert precompute.horizon_object(site["id"], result["elevation_deg"], 10.0) == load(
+        f"horizon/{site['id']}_h10.json"
+    )
+
+
 @pytest.mark.raw
 def test_sites_and_terrain_are_reproduced_from_the_rasters():
     assert sites.build_sites() == SITES

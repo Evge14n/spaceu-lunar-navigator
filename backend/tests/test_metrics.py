@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from backend import ephem, horizon, metrics
+from backend import config, ephem, horizon, metrics
 
 
 def flat(value: float) -> np.ndarray:
@@ -129,6 +129,29 @@ def test_timeline_and_sky_shapes(month):
     )
     assert {"dir", "az", "el", "angular_radius_deg", "horizon_el", "visible_fraction"} <= set(sky["sun"])
     assert {"visible", "distance_km"} <= set(sky["earth"])
+
+
+def test_irradiance_and_energy(month):
+    obs, times, ets, state = month
+    sun = state["sun"]
+    watts = metrics.irradiance(sun)
+    full = sun["visible_fraction"] == 1.0
+    # the whole disc: the solar constant at the actual distance (perihelion is in early January)
+    d_au = sun["distance_km"][full] / config.AU_KM
+    assert np.allclose(watts[full], 1361.0 / d_au**2)
+    assert 0.98 < d_au.min() < d_au.max() < 0.995
+    assert 1375.0 < watts[full].min() and watts[full].max() < 1420.0
+    assert (watts[sun["visible_fraction"] == 0.0] == 0.0).all()
+    # a half-covered disc gives half of it
+    half = metrics.irradiance({"distance_km": np.array([config.AU_KM]), "visible_fraction": np.array([0.5])})
+    assert half[0] == pytest.approx(680.5)
+    summary = metrics.summarize(obs, ets, state)["sun"]
+    assert summary["mean_irradiance_w_m2"] == pytest.approx(watts.mean(), abs=0.05)
+    # 60 days: mean W/m2 * 1440 h
+    assert summary["energy_kwh_m2"] == pytest.approx(watts.mean() * 1440.0 / 1000.0, abs=0.06)
+    assert summary["energy_kwh_m2"] == pytest.approx(0.5 * 1.39 * 1440.0, rel=0.05)
+    sky = metrics.sky(obs, times[12], {k: {f: v[12:13] for f, v in b.items()} for k, b in state.items()})
+    assert sky["sun"]["irradiance_w_m2"] == pytest.approx(watts[12], abs=0.05)
 
 
 def test_fraction_rounding_keeps_slivers():

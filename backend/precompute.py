@@ -6,6 +6,8 @@
     python -m backend.precompute horizon         # data/horizon/<site>.json
     python -m backend.precompute timeline        # data/timeline/<site>.json and data/summary/
     python -m backend.precompute map             # data/illumination.png + .json
+    python -m backend.precompute heights         # masts of 1, 5, 10 m: data/summary/heights.json
+    python -m backend.precompute reference       # data/reference/apollo11.json
     python -m backend.precompute timeline --sites site01,site04
 
 Needs the SPICE kernels and the raw NASA rasters (`python -m backend.fetch_data ...`).
@@ -28,6 +30,7 @@ PERIOD_END = "2027-11-14T00:00:00Z"
 STEP_MIN = 60
 HEIGHT_M = 2.0
 PRESETS = {"30d": 30 * 24, "1y": None}  # hours from the start; None = the whole timeline
+EXTRA_HEIGHTS_M = (1.0, 5.0, 10.0)  # other instrument heights (mast), compared with HEIGHT_M
 TILE_N = 512
 TILE_SIZE_M = 10000.0
 SOURCE = (
@@ -163,12 +166,69 @@ def step_map(_selected) -> None:
     write_json(config.DATA_DIR / "illumination.json", meta, indent=1)
 
 
+def height_row(summary: dict) -> dict:
+    sun, earth = summary["sun"], summary["earth"]
+    return {
+        "height_m": summary["height_m"],
+        "sun": {
+            k: sun[k] for k in ("lit_percent", "longest_dark_h", "mean_irradiance_w_m2", "energy_kwh_m2")
+        },
+        "earth": {k: earth[k] for k in ("visible_percent", "longest_hidden_h")},
+    }
+
+
+def step_heights(selected: list[dict]) -> None:
+    """The same year with the instrument on a mast: what a few metres of height are worth."""
+    ets = ephem.to_et(ephem.time_grid(PERIOD_START, PERIOD_END, STEP_MIN))
+    table = []
+    for site in selected:
+        rows = [
+            height_row(json.loads((config.DATA_DIR / "summary" / f"{site['id']}.json").read_text("utf-8")))
+        ]
+        for height in EXTRA_HEIGHTS_M:
+            result = horizon.horizon_mask(
+                site_surface(site), site["lat"], site["lon"], height, site["elevation_m"]
+            )
+            obj = horizon_object(site["id"], result["elevation_deg"], height)
+            write_json(config.DATA_DIR / "horizon" / f"{site['id']}_h{height:g}.json", obj)
+            obs = observer_for(site, obj["elevation_deg"], height)
+            rows.append(height_row(metrics.summarize(obs, ets, metrics.sky_state(obs, ets))))
+        rows.sort(key=lambda r: r["height_m"])
+        table.append(
+            {
+                "site": {"id": site["id"], "name": site["name"]},
+                "period": {"start": PERIOD_START, "end": PERIOD_END},
+                "heights": rows,
+            }
+        )
+    if len(selected) == len(sites.load_sites()):
+        write_json(config.DATA_DIR / "summary" / "heights.json", table)
+
+
+def reference_summary() -> dict:
+    """Apollo 11 for contrast: the same year at an equatorial site (smooth sphere horizon)."""
+    ref = sites.APOLLO_11
+    obs = metrics.Observer(
+        ref["lat"], ref["lon"], 0.0, HEIGHT_M, horizon.flat_mask(HEIGHT_M), False, ref["id"], ref["name"]
+    )
+    ets = ephem.to_et(ephem.time_grid(PERIOD_START, PERIOD_END, STEP_MIN))
+    out = metrics.summarize(obs, ets, metrics.sky_state(obs, ets))
+    out["site"].update(lat=ref["lat"], lon=ref["lon"], terrain=False, source=ref["source"])
+    return out
+
+
+def step_reference(_selected) -> None:
+    write_json(config.DATA_DIR / "reference" / "apollo11.json", reference_summary())
+
+
 STEPS = {
     "sites": step_sites,
     "terrain": step_terrain,
     "horizon": step_horizon,
     "timeline": step_timeline,
     "map": step_map,
+    "heights": step_heights,
+    "reference": step_reference,
 }
 
 

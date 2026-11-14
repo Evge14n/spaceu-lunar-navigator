@@ -80,6 +80,13 @@ def sky_state(obs: Observer, ets: np.ndarray) -> dict:
     return out
 
 
+def irradiance(sun: dict) -> np.ndarray:
+    """Sunlight on a surface that faces the Sun, W/m2: the solar constant scaled by the
+    distance and by the visible share of the disc (uniform disc, no limb darkening)."""
+    at_distance = config.SOLAR_CONSTANT_W_M2 * (config.AU_KM / sun["distance_km"]) ** 2
+    return at_distance * sun["visible_fraction"]
+
+
 def _visible_at(obs: Observer, key: str, et: float) -> bool:
     body, radius_km = next((b, r) for k, b, r in BODIES if k == key)
     az, el, dist = ephem.azel_from_vectors(
@@ -141,12 +148,15 @@ def summarize(obs: Observer, ets: np.ndarray, state: dict) -> dict:
             "windows": [{"start": _iso(a), "end": _iso(b)} for a, b, vis in parts if vis],
         }
         if key == "sun":
+            mean_w = float(irradiance(state["sun"]).mean())
             out["sun"] = {
                 "lit_percent": common["percent"],
                 "longest_dark_h": common["longest_hidden_h"],
                 "longest_lit_h": common["longest_visible_h"],
                 "max_el": round(float(state["sun"]["el"].max()), 3),
                 "mean_visible_fraction": round(float(state["sun"]["visible_fraction"].mean()), 3),
+                "mean_irradiance_w_m2": round(mean_w, 1),
+                "energy_kwh_m2": round(mean_w * float(ets[-1] - ets[0]) / 3.6e6, 1),
                 "next_sunset": common["next_set"],
                 "hours_to_sunset": common["hours_to_set"],
                 "windows": common["windows"],
@@ -217,6 +227,7 @@ def sky(obs: Observer, time, state: dict, index: int = 0) -> dict:
             "horizon_el": round(float(body["horizon_el"][index]), 3),
             "visible_fraction": _fractions(body["visible_fraction"][index : index + 1])[0],
         }
+    out["sun"]["irradiance_w_m2"] = round(float(irradiance(state["sun"])[index]), 1)
     out["earth"]["visible"] = bool(state["earth"]["visible_fraction"][index] > 0.0)
     out["earth"]["distance_km"] = int(round(float(state["earth"]["distance_km"][index])))
     return out
