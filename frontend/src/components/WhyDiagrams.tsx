@@ -15,7 +15,8 @@ function Skim() {
       <path d="M190 138 a130 26 0 0 0 78 -32" className="d-arrow" markerEnd="url(#ah)" />
       <circle cx="160" cy="112" r="4" className="d-you" />
       <text x="146" y="100" className="d-label">you</text>
-      <text x="170" y="34" className="d-label">Sun stays 1° to 2° up, circles once in 29.5 days</text>
+      <text x="310" y="30" textAnchor="end" className="d-label">Sun stays 1° to 2° up,</text>
+      <text x="310" y="46" textAnchor="end" className="d-label">one full circle in 29.5 days</text>
       <defs>
         <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0 0 L10 5 L0 10z" className="d-arrowhead" />
@@ -65,7 +66,7 @@ function Earth() {
       <circle cx="120" cy="56" r="11" className="d-earth" />
       <circle cx="232" cy="122" r="11" className="d-earth dim" />
       <text x="96" y="30" className="d-label">in view: direct radio</text>
-      <text x="196" y="152" className="d-label">below terrain: relay needed</text>
+      <text x="312" y="154" textAnchor="end" className="d-label">below terrain: relay needed</text>
     </svg>
   )
 }
