@@ -60,17 +60,19 @@ function SunLine({ night, setsIn, onJump }: { night: Night | null; setsIn: strin
 }
 
 export default function View3DPage() {
-  const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
+  const { siteId, setSite, from, to, t, setTime } = useAppState()
   const sites = useSites()
   const tl = useTimeline(siteId)
   const terrain = useTerrain(siteId)
   const horizon = useHorizon(siteId)
   const [mode, setMode] = useState<CameraMode>('site')
   const [enlarge, setEnlarge] = useState(1)
-  const [look, setLook] = useState<'sun' | 'earth'>('sun')
+  const [face, setLook] = useState<'sun' | 'earth'>('sun')
   const [playing, setPlaying] = useState(false)
   // bumped by "Jump to sunrise" so the camera turns to where the Sun comes up
   const [aim, setAim] = useState(0)
+  // camera re-aims when this changes (part of the scene's resetKey): another body, or a jump to sunrise
+  const look = aim ? `${face}#${aim}` : face
   const ladder = useRef<HTMLDivElement>(null)
   const scenePanel = useRef<HTMLElement>(null)
   const azr = useRef<HTMLDivElement>(null)
@@ -89,6 +91,7 @@ export default function View3DPage() {
   }, [playing, tt, f, e, setTime])
 
   const custom = !!siteId && isCustom(siteId)
+  const { setPeriod } = useAppState()
   const night = tl.data ? nightAt(tl.data, tt, ms) : null
   const jumpToSunrise = () => {
     if (!night || night.jumpTo === null) return
@@ -104,7 +107,7 @@ export default function View3DPage() {
   const sky = tl.data ? skyAt(tl.data, tt, ms) : null
   const sunTr = tl.data ? nextTransition(tl.data, 'sun', tt, ms) : null
   const earthTr = tl.data ? nextTransition(tl.data, 'earth', tt, ms) : null
-  const lookDir = sky ? (look === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
+  const lookDir = sky ? (face === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
   const m = terrain.data?.meta
   // tracks on the panorama: the next 30 days from the chosen moment (a whole year is a tangle of loops)
   const range = tl.data ? indexRange(ms, tt, Math.min(e, tt + 30 * 86_400_000)) : null
@@ -134,8 +137,8 @@ export default function View3DPage() {
           <button aria-pressed={mode === 'overview'} onClick={() => setMode('overview')}>From above</button>
         </div>
         <div className="seg" role="group" aria-label="Look towards">
-          <button aria-pressed={look === 'sun'} onClick={() => setLook('sun')}>Face the Sun</button>
-          <button aria-pressed={look === 'earth'} onClick={() => setLook('earth')}>Face Earth</button>
+          <button aria-pressed={face === 'sun'} onClick={() => setLook('sun')}>Face the Sun</button>
+          <button aria-pressed={face === 'earth'} onClick={() => setLook('earth')}>Face Earth</button>
         </div>
         <div className="seg" role="group" aria-label="Disc size">
           <button aria-pressed={enlarge === 1} onClick={() => setEnlarge(1)}>True size</button>
@@ -169,7 +172,7 @@ export default function View3DPage() {
             </div>
           ) : (
             <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
-              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}|${aim}`} overlay={overlay} />
+              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}`} overlay={overlay} />
             </Suspense>
           )}
           <div className="ov ov-ladder" ref={ladder} aria-hidden="true">
