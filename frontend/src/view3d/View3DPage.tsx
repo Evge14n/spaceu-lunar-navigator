@@ -1,6 +1,6 @@
 // 3D view from the site. Owner: Anastasiia Sh. This is a working baseline: replace freely.
 
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   nextTransition,
   riseSet,
@@ -14,7 +14,10 @@ import {
 import { clampPeriod, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { useAppState } from '../state'
-import { Scene, type CameraMode } from './Scene'
+import type { CameraMode } from './Scene'
+
+// three.js loads after the page frame is on screen.
+const Scene = lazy(() => import('./Scene').then((m) => ({ default: m.Scene })))
 
 export default function View3DPage() {
   const { siteId, setSite, from, to, t, setTime } = useAppState()
@@ -90,7 +93,9 @@ export default function View3DPage() {
       </div>
 
       <div className="stage">
-        <Scene terrain={terrain.data} horizon={horizon.data} sky={sky} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} />
+        <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
+          <Scene terrain={terrain.data} horizon={horizon.data} sky={sky} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} />
+        </Suspense>
         <div className="hud" aria-live="polite">
           <p className="hud-sun">
             <b>Sun</b> {sky.sun.el.toFixed(2)}° high, az {sky.sun.az.toFixed(0)}° ·{' '}
