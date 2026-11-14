@@ -8,9 +8,11 @@
 
 /* "Lunar map sheet" design (team mock-up, 14.11.2026).
    Paper and ink, condensed headings, mono labels. No dark theme, no radii, no shadows.
-   All colours live here as tokens. Sun = orange, Earth = blue, darkness = ink hatching. */
+   All colours live here as tokens. Sun = orange, Earth = blue, darkness = ink hatching.
+   "only light": the sheet stays paper even when the phone is in dark mode. Without "only",
+   Chrome on Android repaints the page dark by itself (auto dark), which also flips the map legend. */
 :root {
-  color-scheme: light;
+  color-scheme: only light;
   --page: #e4e7ea;
   --sheet: #f7f8f9;
   --white: #ffffff;
