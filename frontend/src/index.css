@@ -206,7 +206,7 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .index-mob { display: none; }
 .pano-scroll { overflow-x: auto; }
 .wstrips { padding-left: 50px; padding-right: 8px; }
-.wrow { display: flex !important; flex-direction: column; gap: 2px; }
+.wrow { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 2px; }
 .cmp td .num { white-space: nowrap; }
 .period-tag { padding: 8px 20px; border-bottom: 1px solid var(--line); }
 .index { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; list-style: none; margin: 0; padding: 0; }
