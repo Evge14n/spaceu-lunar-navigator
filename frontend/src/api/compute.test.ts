@@ -9,6 +9,7 @@ import {
   HOUR,
   nextSet,
   nextTransition,
+  periodPresets,
   runs,
   skyAt,
   summarize,
@@ -123,6 +124,17 @@ describe('runs and summary', () => {
     const s = summarize(tl, { id: 't', name: 'T' }, Date.parse('2030-01-01'), Date.parse('2030-01-02'))
     expect(s.sun.lit_percent).toBe(0)
     expect(s.earth.windows).toEqual([])
+  })
+})
+
+describe('periodPresets', () => {
+  it('finds the darkest 30 days', () => {
+    const n = 24 * 90
+    const pattern = Array.from({ length: n }, (_, i) => (i >= 24 * 40 && i < 24 * 70 ? '0' : '1')).join('')
+    const tl = synth(pattern)
+    const p = periodPresets([tl]).find((x) => x.label === 'Darkest 30 days')!
+    expect((p.from - Date.parse(tl.times[0])) / HOUR).toBe(24 * 40)
+    expect(periodPresets([tl]).map((x) => x.label)).toEqual(['2 weeks', '30 days', 'Darkest 30 days', 'Whole year'])
   })
 })
 

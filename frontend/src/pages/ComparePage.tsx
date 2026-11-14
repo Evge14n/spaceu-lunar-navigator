@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { formatHours, summarize, timesMs, useSites, useTimelines, type Site, type Summary } from '../api'
+import { formatHours, periodPresets, summarize, timesMs, useSites, useTimelines, type Site, type Summary } from '../api'
 import { clampPeriod, PeriodMovedNote, PeriodPicker, siteLabel } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { useAppState } from '../state'
@@ -49,7 +49,7 @@ export default function ComparePage() {
       const s = list.find((x) => x.id === chosen[i]) as Site
       return summarize(tl, { id: s.id, name: s.name }, f, e)
     })
-    return { f, e, ms, sums, moved }
+    return { f, e, ms, sums, moved, presets: periodPresets(tls.data) }
   }, [tls.data, chosen, list, from, to])
 
   const toggle = (id: string) => {
@@ -83,6 +83,7 @@ export default function ComparePage() {
           min={result?.ms[0]}
           max={result?.ms[result.ms.length - 1]}
           onChange={setPeriod}
+          presets={result?.presets}
         />
       </div>
 

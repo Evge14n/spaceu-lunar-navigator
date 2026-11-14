@@ -37,8 +37,10 @@ export default function View3DPage() {
 
   useEffect(() => {
     if (!playing) return
+    // about 40 s for the whole period, at least one hour per frame
+    const step = Math.max(3_600_000, Math.round((e - f) / 330 / 3_600_000) * 3_600_000)
     const id = window.setInterval(() => {
-      setTime(tt + 3_600_000 > e ? f : tt + 3_600_000)
+      setTime(tt + step > e ? f : tt + step)
     }, 120)
     return () => window.clearInterval(id)
   }, [playing, tt, f, e, setTime])

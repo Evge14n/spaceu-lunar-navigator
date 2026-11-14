@@ -14,6 +14,7 @@ import {
   formatHours,
   indexRange,
   nextTransition,
+  periodPresets,
   runs,
   skyAt,
   summarize,
@@ -107,7 +108,7 @@ export default function TimelinePage() {
       })
     }
     const sum = summarize(d, { id: d.site.id, name: d.site.id }, f, e)
-    return { ms, f, e, i0, i1, rows, moved, sum }
+    return { ms, f, e, i0, i1, rows, moved, sum, presets: periodPresets([d]) }
   }, [tl.data, from, to])
   const tChart = useDeferredValue(t)
 
@@ -131,7 +132,7 @@ export default function TimelinePage() {
 
       <div className="toolbar">
         {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
-        <PeriodPicker from={view.f} to={view.e} min={view.ms[0]} max={view.ms[view.ms.length - 1]} onChange={setPeriod} />
+        <PeriodPicker from={view.f} to={view.e} min={view.ms[0]} max={view.ms[view.ms.length - 1]} onChange={setPeriod} presets={view.presets} />
       </div>
 
       <PeriodMovedNote moved={view.moved} />
