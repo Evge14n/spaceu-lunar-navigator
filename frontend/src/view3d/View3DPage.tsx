@@ -66,7 +66,7 @@ export default function View3DPage() {
         </p>
       </div>
       <div className="toolbar">
-        {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
+        <SiteSelect sites={sites.data ?? []} value={siteId} onChange={setSite} />
         <div className="seg" role="group" aria-label="Camera">
           <button aria-pressed={mode === 'overview'} onClick={() => setMode('overview')}>Overview</button>
           <button aria-pressed={mode === 'site'} onClick={() => setMode('site')}>Stand at the site</button>

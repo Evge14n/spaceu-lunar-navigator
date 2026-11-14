@@ -30,7 +30,8 @@ export function SiteSelect({
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
-      <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
+      <select id={id} value={value ?? ''} disabled={!sites.length} onChange={(e) => onChange(e.target.value)}>
+        {!sites.length && <option value={value ?? ''}>Loading sites…</option>}
         {sites.map((s) => (
           <option key={s.id} value={s.id}>
             {siteLabel(s)}
