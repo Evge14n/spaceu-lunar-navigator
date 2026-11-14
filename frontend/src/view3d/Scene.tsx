@@ -8,11 +8,10 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { Horizon, Sky, Terrain } from '../api'
 import { dirFromAzEl } from '../api'
+import { litCells } from './terrainShadow'
+import { useTerrainHorizons } from './useTerrainHorizons'
 
 const SKY_R = 60_000
-// smaller shadow map on phones: same look at that size, far less GPU work
-const SHADOW_SIZE: [number, number] =
-  typeof window !== 'undefined' && window.innerWidth < 700 ? [1024, 1024] : [2048, 2048]
 const DPR: [number, number] = typeof window !== 'undefined' && window.innerWidth < 700 ? [1, 1.5] : [1, 1.75]
 const FAR_R = 30_000
 
@@ -56,13 +55,69 @@ export function centreHeight(terrain: Terrain): number {
   return (h[a * n + a] + h[a * n + b] + h[b * n + a] + h[b * n + b]) / 4
 }
 
-function TerrainMesh({ terrain }: { terrain: Terrain }) {
+const terrainVert = /* glsl */ `
+varying vec3 vN;
+varying vec2 vUv;
+void main() {
+  vN = normalize(mat3(modelMatrix) * normal);
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`
+
+// Lit share of the Sun's disc per cell comes from litMap (terrain horizons, terrainShadow.ts); the slope
+// only sets how bright a lit cell is. A weak fill keeps the shape readable inside the shadows.
+const terrainFrag = /* glsl */ `
+uniform sampler2D litMap;
+uniform vec3 sunDir;
+uniform float ready;
+varying vec3 vN;
+varying vec2 vUv;
+void main() {
+  vec3 n = normalize(vN);
+  float lit = mix(1.0, texture2D(litMap, vUv).r, ready);
+  // the Sun is 1-2 degrees up: flat ground gets dot 0.03, so the slope term is scaled up like an exposure
+  float direct = lit * clamp(max(dot(n, sunDir), 0.0) * 6.0, 0.0, 0.95);
+  // fill from the side opposite the Sun (light reflected by lit slopes): keeps the form inside shadows
+  vec3 back = normalize(vec3(-sunDir.x, 0.6, -sunDir.z));
+  float fill = 0.035 + 0.075 * clamp(dot(n, back), 0.0, 1.0);
+  gl_FragColor = vec4(vec3(0.62, 0.63, 0.65) * (fill + direct), 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`
+
+function TerrainMesh({ terrain, sky, mask }: { terrain: Terrain; sky: Sky; mask: number[] | null }) {
   const geo = useTerrainGeometry(terrain)
-  return (
-    <mesh geometry={geo} receiveShadow castShadow>
-      <meshStandardMaterial color="#9a9ea3" roughness={0.97} metalness={0} />
-    </mesh>
+  const hz = useTerrainHorizons(terrain)
+  const tex = useMemo(() => {
+    const g = hz?.g ?? 1
+    const t = new THREE.DataTexture(new Uint8Array(g * g).fill(255), g, g, THREE.RedFormat, THREE.UnsignedByteType)
+    t.magFilter = THREE.LinearFilter
+    t.minFilter = THREE.LinearFilter
+    t.needsUpdate = true
+    return t
+  }, [hz])
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: terrainVert,
+        fragmentShader: terrainFrag,
+        uniforms: { litMap: { value: null }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, ready: { value: 0 } },
+      }),
+    [],
   )
+  useEffect(() => () => mat.dispose(), [mat])
+  useEffect(() => () => tex.dispose(), [tex])
+  // every time step: only the lit share per cell is recomputed (about 1 ms), the horizons stay
+  useEffect(() => {
+    if (hz) {
+      litCells(hz, mask, sky.sun.az, sky.sun.el, sky.sun.angular_radius_deg, tex.image.data as Uint8Array)
+      tex.needsUpdate = true
+    }
+    mat.uniforms.litMap.value = tex
+    mat.uniforms.ready.value = hz ? 1 : 0
+    mat.uniforms.sunDir.value.set(...sky.sun.dir)
+  }, [hz, tex, mat, mask, sky.sun.az, sky.sun.el, sky.sun.angular_radius_deg, sky.sun.dir])
+  return <mesh geometry={geo} material={mat} />
 }
 
 /** Far terrain from the horizon mask: a ring "wall" at FAR_R whose top matches the mask angle. */
@@ -212,21 +267,7 @@ function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
   return (
     <>
       <primitive object={target} position={[0, eyeY, 0]} />
-      <directionalLight
-        ref={ref}
-        position={pos}
-        intensity={3.2 * sky.sun.visible_fraction}
-        castShadow
-        shadow-mapSize={SHADOW_SIZE}
-        shadow-camera-left={-7000}
-        shadow-camera-right={7000}
-        shadow-camera-top={7000}
-        shadow-camera-bottom={-7000}
-        shadow-camera-near={100}
-        shadow-camera-far={45_000}
-        shadow-bias={-0.0004}
-        shadow-normalBias={20}
-      />
+      <directionalLight ref={ref} position={pos} intensity={3.2} />
     </>
   )
 }
@@ -401,18 +442,17 @@ function SceneInner({
   return (
     <div className="canvas-wrap" role="img" aria-label="3D view of the terrain around the site with the Sun and the Earth">
     <Canvas
-      shadows="percentage"
       dpr={DPR}
       camera={{ fov: EYE_FOV, near: 0.3, far: 250_000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
     >
-      {/* weak fill light so the shape of the ground reads; shadows still come only from the real Sun direction */}
+      {/* lights for the Earth disc; the terrain has its own shading with shadows cast through the horizons */}
       <ambientLight intensity={0.55} color="#c8ced6" />
       <hemisphereLight args={['#9aa3ad', '#2a2e33', 0.45]} />
       <SunLight sky={sky} eyeY={eyeY} />
       <group scale={[1, exaggeration, 1]}>
-        <TerrainMesh terrain={terrain} />
+        <TerrainMesh terrain={terrain} sky={sky} mask={horizon?.elevation_deg ?? null} />
       </group>
       {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} />}
       <SkyDome sky={sky} enlarge={enlarge} />
