@@ -49,6 +49,16 @@ SITE_MODELS = (
     SiteModel("dm2", "DM2", "Nobile rim 2"),
 )
 
+# For contrast with the pole: the Apollo 11 Lunar Module. Coordinates from the NASA NSSDCA
+# table "Apollo Landing Site Coordinates" (Wagner et al. 2017, Mean Earth/Polar Axis, DE421).
+APOLLO_11 = {
+    "id": "apollo11",
+    "name": "Apollo 11 (Tranquility Base)",
+    "lat": 0.67416,
+    "lon": 23.47314,
+    "source": "NASA NSSDCA, Apollo Landing Site Coordinates (Wagner et al. 2017); smooth sphere horizon",
+}
+
 
 def best_lit_point(tile: terrain.Grid, vis: terrain.Grid) -> tuple[float, float, float] | None:
     """Map x, y (m) of the best-lit window inside the tile and its mean illumination (0..1).
