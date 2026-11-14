@@ -44,16 +44,24 @@ function hasRealSites(x: unknown): boolean {
   )
 }
 
-let manifestPromise: Promise<Set<string>> | null = null
+interface Manifest {
+  files: Set<string>
+  layers: Set<string>
+}
+let manifestPromise: Promise<Manifest> | null = null
 
-/** Files present in data/ (written at build time by vite.config.ts). */
-export function dataFiles(): Promise<Set<string>> {
+function manifest(): Promise<Manifest> {
   if (!manifestPromise) {
-    manifestPromise = getJson<{ files: string[] }>(`${BASE}data-manifest.json`)
-      .then((m) => new Set(m.files))
-      .catch(() => new Set<string>())
+    manifestPromise = getJson<{ files: string[]; layers?: string[] }>(`${BASE}data-manifest.json`)
+      .then((m) => ({ files: new Set(m.files), layers: new Set(m.layers ?? []) }))
+      .catch(() => ({ files: new Set<string>(), layers: new Set<string>() }))
   }
   return manifestPromise
+}
+
+/** Files present in data/ (written at build time by vite.config.ts). */
+export async function dataFiles(): Promise<Set<string>> {
+  return (await manifest()).files
 }
 
 let sourcePromise: Promise<DataSource> | null = null
@@ -146,7 +154,9 @@ export async function getIlluminationLayer(): Promise<{ url: string; meta: Illum
   try {
     if (!(await dataFiles()).has('illumination.json')) return null
     const meta = await getJson<IlluminationMeta>(`${BASE}data/illumination.json`)
-    return { url: `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
+    // a lighter WebP copy of the same picture when it is up to date (scripts/make_layers.py)
+    const web = (await manifest()).layers.has('illumination.webp')
+    return { url: web ? `${BASE}layers/illumination.webp` : `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
   } catch {
     return null
   }
