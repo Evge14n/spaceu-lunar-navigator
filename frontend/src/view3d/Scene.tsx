@@ -261,6 +261,8 @@ function CameraRig({
   const controls = useRef<OrbitControls | null>(null)
   const latestLook = useRef(lookDir)
   latestLook.current = lookDir
+  const eyeRef = useRef(eyeY)
+
   // Created in an effect so StrictMode's test unmount/remount reconnects the listeners.
   useEffect(() => {
     const c = new OrbitControls(camera, gl.domElement)
@@ -270,28 +272,43 @@ function CameraRig({
       controls.current = null
     }
   }, [camera, gl])
+
   useFrame(() => controls.current?.update())
-  // Move the camera only when the mode, the target body or the site changes, not on every time step.
+
+  // 1) The eye height changed (relief 1x/3x, other site): shift camera and target
+  // by the difference, so the viewing angle and zoom are kept.
+  // Must stay ABOVE the reset effect: on a site change both run, and the reset reads eyeRef.
+  useEffect(() => {
+    const c = controls.current
+    const dy = eyeY - eyeRef.current
+    eyeRef.current = eyeY
+    if (!c || dy === 0) return
+    camera.position.y += dy
+    c.target.y += dy
+  }, [camera, eyeY])
+
+  // 2) Reset the camera only when the mode, the target body or the site changes.
   useEffect(() => {
     const c = controls.current
     if (!c) return
+    const eye = eyeRef.current
     const d = latestLook.current
     c.enablePan = mode === 'overview'
     c.rotateSpeed = mode === 'site' ? -0.35 : 0.6
     c.maxPolarAngle = mode === 'overview' ? Math.PI / 2.05 : Math.PI
     if (mode === 'site') {
-      c.target.set(d[0] * 50, eyeY + d[1] * 50, d[2] * 50)
-      camera.position.set(-d[0] * 0.5, eyeY - d[1] * 0.5, -d[2] * 0.5)
+      c.target.set(d[0] * 50, eye + d[1] * 50, d[2] * 50)
+      camera.position.set(-d[0] * 0.5, eye - d[1] * 0.5, -d[2] * 0.5)
       c.minDistance = 0.1
       c.maxDistance = 200
     } else {
-      camera.position.set(-d[0] * 6000, eyeY + 1800, -d[2] * 6000)
-      c.target.set(0, eyeY, 0)
+      camera.position.set(-d[0] * 6000, eye + 1800, -d[2] * 6000)
+      c.target.set(0, eye, 0)
       c.minDistance = 500
       c.maxDistance = 20_000
     }
-    c.update()
-  }, [camera, mode, eyeY, resetKey])
+  }, [camera, mode, resetKey])
+
   return null
 }
 
