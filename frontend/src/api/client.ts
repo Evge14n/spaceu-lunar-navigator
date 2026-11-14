@@ -151,13 +151,18 @@ export function getTerrain(siteId: string): Promise<Terrain> {
 }
 
 /** URL of the illumination map layer (data/illumination.png), or null when it is not published yet. */
-export async function getIlluminationLayer(): Promise<{ url: string; meta: IlluminationMeta } | null> {
+export async function getIlluminationLayer(): Promise<{ url: string; srcSet?: string; meta: IlluminationMeta } | null> {
   try {
     if (!(await dataFiles()).has('illumination.json')) return null
     const meta = await getJson<IlluminationMeta>(`${BASE}data/illumination.json`)
     // a lighter WebP copy of the same picture when it is up to date (scripts/make_layers.py)
-    const web = (await manifest()).layers.has('illumination.webp')
-    return { url: web ? `${BASE}layers/illumination.webp` : `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
+    const layers = (await manifest()).layers
+    const web = layers.has('illumination.webp')
+    const srcSet =
+      web && layers.has('illumination-1024.webp')
+        ? `${BASE}layers/illumination-1024.webp 1024w, ${BASE}layers/illumination.webp ${meta.width ?? 1772}w`
+        : undefined
+    return { url: web ? `${BASE}layers/illumination.webp` : `${BASE}data/${meta.file ?? 'illumination.png'}`, srcSet, meta }
   } catch {
     return null
   }
@@ -170,6 +175,7 @@ export interface IlluminationMeta {
   y_km: [number, number]
   source?: string
   lat_limit?: number
+  width?: number
   legend?: { percent: number; grey: number }[]
 }
 

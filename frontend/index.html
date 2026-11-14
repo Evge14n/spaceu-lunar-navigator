@@ -12,9 +12,18 @@
     <meta property="og:description" content="Ten candidate sites at the lunar south pole: how long each stays lit and when Earth is in view, from NASA SPICE and LOLA terrain." />
     <meta property="og:image" content="https://evge14n.github.io/spaceu-lunar-navigator/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+    <link rel="preload" href="./fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/IBMPlexSans-var.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/IBMPlexMono-500.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // The map is the landing sheet: start fetching its picture before the app runs.
+      if (location.hash === '' || location.hash.indexOf('#/map') === 0) {
+        var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = './layers/illumination-1024.webp';
+        l.media = '(max-width: 700px)'; document.head.appendChild(l);
+        var m = document.createElement('link'); m.rel = 'preload'; m.as = 'image'; m.href = './layers/illumination.webp';
+        m.media = '(min-width: 701px)'; document.head.appendChild(m);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
