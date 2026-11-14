@@ -157,6 +157,58 @@ def test_orientation_table_is_reproduced_from_the_rasters():
     assert json.loads(json.dumps(validate.orientation_check())) == stored
 
 
+def _cell(value: float, digits: int = 2, sign: bool = False) -> str:
+    text = f"{value:+.{digits}f}" if sign else f"{value:.{digits}f}"
+    return text.replace("-", "\u2212")
+
+
+def test_validation_document_quotes_the_stored_numbers(summary):
+    """The tables of docs/VALIDATION.md are the stored results, not numbers typed from memory."""
+    text = (config.REPO_ROOT / "docs" / "VALIDATION.md").read_text("utf-8")
+    stats = ("mae_pp", "median_abs_pp", "p90_abs_pp")
+    for name, r in summary["test2_sun"].items():
+        row = " | ".join(
+            [_cell(r["bias_pp"], sign=True), *(_cell(r[k]) for k in stats), _cell(r["max_abs_pp"], 1)]
+        )
+        assert f"| {row} | {r['correlation']:.4f} |" in text, name
+    for name, r in summary["test2_sun_by_band"].items():
+        row = " | ".join(
+            [_cell(r["bias_pp"], sign=True), *(_cell(r[k]) for k in stats), _cell(r["max_abs_pp"], 1)]
+        )
+        assert f"| {r['n']} | {row} |" in text, name
+    for name, r in summary["test2_sun_effects"].items():
+        row = [_cell(r["mean_pp"], sign=True), _cell(r["mean_abs_pp"]), _cell(r["max_abs_pp"], 1)]
+        assert f"| {' | '.join(row)} | {r['changed_percent']:.0f} % |" in text, name
+    earth = summary["test2_earth"]["map_config"]
+    row = " | ".join([_cell(earth["bias_pp"], sign=True), *(_cell(earth[k]) for k in stats)])
+    assert f"| {row} | {_cell(earth['max_abs_pp'], 1)} | {earth['correlation']:.4f} |" in text
+    accuracy = json.loads((config.DATA_DIR / "validation.json").read_text("utf-8"))
+    for r in accuracy["sites"]["rows"]:
+        steps = [
+            _cell(r["map_configuration_difference_pp"], 1, True),
+            _cell(r["height_effect_pp"], 1, True),
+            _cell(r["model_effect_pp"], 1, True) if r["model_effect_pp"] else "0.0",
+            _cell(r["year_effect_pp"], 1, True),
+        ]
+        row = (
+            f"(`{r['id']}`) | {r['nasa_percent']:.1f} | {r['map_configuration_percent']:.1f} | "
+            f"{' | '.join(steps)} | {r['ours_year_percent']:.1f} | {_cell(r['difference_pp'], 1, True)} |"
+        )
+        assert row in text, r["id"]
+    for r in accuracy["terrain_orientation"]["rows"]:
+        assert f"| {r['model']} | {r['rms_m']} | {r['other_min_rms_m']} | {r['other_max_rms_m']} |" in text
+    browser = json.loads((DIR / "browser.json").read_text("utf-8"))
+    for r in browser["pixels"]["lit_percent_by_band_of_full"]:
+        row = [_cell(r["bias"], sign=True), _cell(r["mae"]), _cell(r["median_abs"]), _cell(r["p90_abs"])]
+        assert f"| {r['n']} | {' | '.join(row)} | {_cell(r['max_abs'], 1)} |" in text, r["band"]
+    for r in browser["first_sample_study"]:
+        row = [_cell(r["bias"], sign=True), _cell(r["mae"]), _cell(r["median_abs"]), _cell(r["p90_abs"])]
+        assert f"| {' | '.join(row)} | {_cell(r['max_abs'], 1)} | {r['within_pp']['5']} % |" in text
+    lit = browser["pixels"]["lit_percent"]
+    row = [_cell(lit["bias"], sign=True), _cell(lit["mae"]), _cell(lit["median_abs"]), _cell(lit["p90_abs"])]
+    assert f"| {' | '.join(row)} | {_cell(lit['max_abs'], 1)} |" in text
+
+
 def _patch(flag: np.ndarray, row: int, col: int) -> set:
     """Pixels of the flagged patch that contains (row, col), 4-connected."""
     seen, todo = {(row, col)}, [(row, col)]
