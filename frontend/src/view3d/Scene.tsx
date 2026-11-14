@@ -10,6 +10,9 @@ import type { Horizon, Sky, Terrain } from '../api'
 import { dirFromAzEl } from '../api'
 
 const SKY_R = 60_000
+// smaller shadow map on phones: same look at that size, far less GPU work
+const SHADOW_SIZE: [number, number] =
+  typeof window !== 'undefined' && window.innerWidth < 700 ? [1024, 1024] : [2048, 2048]
 const FAR_R = 30_000
 
 function useTerrainGeometry(terrain: Terrain) {
@@ -208,7 +211,7 @@ function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
         position={pos}
         intensity={3.2 * sky.sun.visible_fraction}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={SHADOW_SIZE}
         shadow-camera-left={-7000}
         shadow-camera-right={7000}
         shadow-camera-top={7000}
