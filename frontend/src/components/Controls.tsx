@@ -1,7 +1,7 @@
 // Shared controls: site select, period, time slider. Plain native inputs, styled in index.css.
 
 import { useId } from 'react'
-import type { Site } from '../api'
+import type { PeriodPreset, Site } from '../api'
 import { HOUR } from '../api'
 
 export const fmtUtc = (t: number) =>
@@ -47,12 +47,14 @@ export function PeriodPicker({
   min,
   max,
   onChange,
+  presets = [],
 }: {
   from: number
   to: number
   min?: number
   max?: number
   onChange: (from: number, to: number) => void
+  presets?: PeriodPreset[]
 }) {
   const a = useId()
   const b = useId()
@@ -91,6 +93,20 @@ export function PeriodPicker({
           }}
         />
       </div>
+      {presets.length > 0 && (
+        <div className="seg presets" role="group" aria-label="Quick periods">
+          {presets.map((p) => (
+            <button
+              type="button"
+              key={p.label}
+              aria-pressed={Math.abs(p.from - from) < HOUR && Math.abs(p.to - to) < HOUR}
+              onClick={() => onChange(p.from, p.to)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
     </fieldset>
   )
 }

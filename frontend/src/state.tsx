@@ -14,7 +14,8 @@ import {
 } from 'react'
 
 export const DEFAULT_FROM = Date.parse('2026-11-14T00:00:00Z')
-export const DEFAULT_TO = Date.parse('2026-11-28T00:00:00Z')
+// Whole computed year by default: annual numbers differ between sites; mid-November alone is 100 % lit almost everywhere.
+export const DEFAULT_TO = Date.parse('2027-11-14T00:00:00Z')
 export const DEFAULT_T = Date.parse('2026-11-14T12:00:00Z')
 
 export interface Selection {

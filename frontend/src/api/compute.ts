@@ -260,3 +260,42 @@ export function riseSet(tr: Transition, upText: string, downText: string, upNone
   if (tr.hours === null) return tr.up ? upNone : downNone
   return `${tr.up ? upText : downText} ${formatHours(tr.hours)}`
 }
+
+export interface PeriodPreset {
+  label: string
+  from: number
+  to: number
+}
+
+/** Handy periods for the data at hand: two weeks, a month, the darkest 30 days of these sites, everything. */
+export function periodPresets(tls: Timeline[]): PeriodPreset[] {
+  if (!tls.length) return []
+  const ms = timesMs(tls[0])
+  const lo = ms[0]
+  const hi = ms[ms.length - 1]
+  const day = 24 * HOUR
+  const out: PeriodPreset[] = [
+    { label: '2 weeks', from: lo, to: Math.min(hi, lo + 14 * day) },
+    { label: '30 days', from: lo, to: Math.min(hi, lo + 30 * day) },
+  ]
+  const n = Math.min(...tls.map((t) => t.times.length))
+  const w = Math.round((30 * day) / (stepHours(ms) * HOUR))
+  if (n > w + 1) {
+    const lit = new Array<number>(n).fill(0)
+    for (const tl of tls) for (let i = 0; i < n; i++) if (tl.sun.visible_fraction[i] > 0) lit[i]++
+    let sum = 0
+    for (let i = 0; i < w; i++) sum += lit[i]
+    let best = sum
+    let bestI = 0
+    for (let i = w; i < n; i++) {
+      sum += lit[i] - lit[i - w]
+      if (sum < best) {
+        best = sum
+        bestI = i - w + 1
+      }
+    }
+    out.push({ label: 'Darkest 30 days', from: ms[bestI], to: ms[bestI + w - 1] })
+  }
+  out.push({ label: 'Whole year', from: lo, to: hi })
+  return out
+}
