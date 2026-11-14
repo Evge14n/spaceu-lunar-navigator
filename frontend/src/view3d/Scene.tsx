@@ -305,6 +305,7 @@ function CameraRig({
   const controls = useRef<OrbitControls | null>(null)
   const latestLook = useRef(lookDir)
   latestLook.current = lookDir
+  const eyeRef = useRef(eyeY)
   const modeRef = useRef(mode)
   modeRef.current = mode
   // Created in an effect so StrictMode's test unmount/remount reconnects the listeners.
@@ -332,11 +333,26 @@ function CameraRig({
       controls.current = null
     }
   }, [camera, gl])
+
   useFrame(() => controls.current?.update())
-  // Move the camera only when the mode, the target body or the site changes, not on every time step.
+
+  // 1) The eye height changed (relief 1x/3x, other site): shift camera and target
+  // by the difference, so the viewing angle and zoom are kept.
+  // Must stay ABOVE the reset effect: on a site change both run, and the reset reads eyeRef.
+  useEffect(() => {
+    const c = controls.current
+    const dy = eyeY - eyeRef.current
+    eyeRef.current = eyeY
+    if (!c || dy === 0) return
+    camera.position.y += dy
+    c.target.y += dy
+  }, [camera, eyeY])
+
+  // 2) Reset the camera only when the mode, the target body or the site changes.
   useEffect(() => {
     const c = controls.current
     if (!c) return
+    const eye = eyeRef.current
     const d = latestLook.current
     const cam = camera as THREE.PerspectiveCamera
     c.enablePan = mode === 'overview'
@@ -348,15 +364,15 @@ function CameraRig({
       // look along the body's azimuth, a little above it, so the horizon sits in the lower part of the frame
       const look = Math.min(Math.max(el, -0.05), 0.1) + (3 * Math.PI) / 180
       const dir = new THREE.Vector3(Math.cos(look) * Math.sin(az), Math.sin(look), -Math.cos(look) * Math.cos(az))
-      camera.position.set(0, eyeY, 0)
-      c.target.set(dir.x * 0.01, eyeY + dir.y * 0.01, dir.z * 0.01)
+      camera.position.set(0, eye, 0)
+      c.target.set(dir.x * 0.01, eye + dir.y * 0.01, dir.z * 0.01)
       cam.fov = EYE_FOV
       c.minDistance = 0.005
       c.maxDistance = 0.02
       c.enableZoom = false
     } else {
-      camera.position.set(-Math.sin(az) * 6000, eyeY + 1800, Math.cos(az) * 6000)
-      c.target.set(0, eyeY, 0)
+      camera.position.set(-Math.sin(az) * 6000, eye + 1800, Math.cos(az) * 6000)
+      c.target.set(0, eye, 0)
       cam.fov = ABOVE_FOV
       c.minDistance = 500
       c.maxDistance = 20_000
@@ -364,7 +380,7 @@ function CameraRig({
     }
     cam.updateProjectionMatrix()
     c.update()
-  }, [camera, mode, eyeY, resetKey])
+  }, [camera, mode, resetKey])
   return null
 }
 
