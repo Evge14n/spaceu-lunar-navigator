@@ -48,6 +48,9 @@ export interface Summary {
     max_el: number
     next_sunset: string | null
     hours_to_sunset: number | null
+    /** mean sunlight on a panel facing the Sun, W/m2 (1361 x visible part of the disc) */
+    mean_irradiance_w_m2?: number
+    energy_kwh_m2?: number
   }
   earth: {
     visible_percent: number
@@ -100,3 +103,13 @@ export interface Sky {
 }
 
 export type DataSource = 'real' | 'mock'
+
+/** data/summary/heights.json: one year for an instrument 1, 2, 5 and 10 m above the ground. */
+export interface HeightRow {
+  site: { id: string; name: string }
+  heights: {
+    height_m: number
+    sun: { lit_percent: number; longest_dark_h: number; mean_irradiance_w_m2?: number; energy_kwh_m2?: number }
+    earth: { visible_percent: number; longest_hidden_h?: number }
+  }[]
+}

@@ -7,7 +7,7 @@
 //   mock           - always ./mock/
 // VITE_API_URL (optional): live FastAPI, used only for custom coordinates ("custom:-89.5,0").
 
-import type { DataSource, Horizon, Site, Summary, Terrain, TerrainMeta, Timeline } from './types'
+import type { DataSource, HeightRow, Horizon, Site, Summary, Terrain, TerrainMeta, Timeline } from './types'
 import { summarize, timesMs } from './compute'
 
 const env = import.meta.env
@@ -186,6 +186,18 @@ export async function getYearSummaries(): Promise<Summary[]> {
     const ms = timesMs(tl)
     return summarize(tl, { id: sites[i].id, name: sites[i].name }, ms[0], ms[ms.length - 1])
   })
+}
+
+/** One year at instrument heights 1, 2, 5, 10 m (data/summary/heights.json), or null when not published. */
+export async function getHeights(): Promise<HeightRow[] | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('summary/heights.json')) return null
+  return getJson<HeightRow[]>(`${BASE}data/summary/heights.json`)
+}
+
+/** Apollo 11 year summary for contrast (data/reference/apollo11.json), or null. */
+export async function getApollo(): Promise<(Summary & { site: { name: string; lat?: number } }) | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('reference/apollo11.json')) return null
+  return getJson(`${BASE}data/reference/apollo11.json`)
 }
 
 /** Validation results published by the backend (data/validation.json), or null while it is not there. */
