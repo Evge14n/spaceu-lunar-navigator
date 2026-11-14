@@ -2,10 +2,10 @@
 
 import { useId } from 'react'
 import type { PeriodPreset, Site } from '../api'
+import { dateTimeUtc } from '../format'
 import { HOUR } from '../api'
 
-export const fmtUtc = (t: number) =>
-  new Date(t).toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+export const fmtUtc = (t: number) => dateTimeUtc(t)
 const toDateInput = (t: number) => new Date(t).toISOString().slice(0, 10)
 const fromDateInput = (s: string) => Date.parse(`${s}T00:00:00Z`)
 
@@ -128,8 +128,8 @@ export function TimeSlider({
   const v = Math.round((Math.min(Math.max(value, from), to) - from) / HOUR)
   return (
     <div className="slider">
-      <label htmlFor={id}>
-        Time <output htmlFor={id}>{fmtUtc(from + v * HOUR)}</output>
+      <label htmlFor={id} className="label">
+        Time / <output htmlFor={id}>{fmtUtc(from + v * HOUR)}</output>
       </label>
       <input
         id={id}

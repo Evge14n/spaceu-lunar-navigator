@@ -1,5 +1,6 @@
-// Texts for the "Why?" screen. Owner: Nazar. DRAFTS from the team notes, replace freely.
-// Keep each body short (2-3 sentences). `diagram` picks a picture in components/WhyDiagrams.tsx.
+// Texts for the "Why" sheet. Owner: Nazar. Drafts from the design (Claude Design, 14.11), replace freely.
+// Keep each body to 1-2 sentences. `diagram` picks a picture in components/WhyDiagrams.tsx.
+// A fact may be replaced on the page by a number computed from data/ (see WhyPage.tsx, `dataFact`).
 
 export interface WhyItem {
   id: string
@@ -13,47 +14,44 @@ export interface WhyItem {
 export const why: WhyItem[] = [
   {
     id: 'skim',
-    title: 'The Sun never climbs high at the pole',
-    body:
-      'The Moon’s axis is tilted only about 1.5° from the plane in which the Earth and Moon go around the Sun. So at the south pole the Sun circles the whole horizon once every 29.5 days and never rises more than a couple of degrees.',
-    fact: 'At 89.5° S on 14 November 2026 the Sun is 1.3° above the horizon and moves about 12° along it every day.',
-    source: 'NASA Moon Fact Sheet (6.68° − 5.145°); JPL Horizons, queried 12 Nov 2026',
+    title: 'The Sun never climbs',
+    body: "The Moon's axis is tilted only about 1.5°. At the pole the Sun does not rise and set, it slides around the horizon once a month.",
+    fact: 'At 89.5° S on 14 Nov 2026 the Sun is 1.3° up and moves 12° along the horizon each day.',
+    source: 'NASA Moon Fact Sheet; JPL Horizons, queried 12 Nov 2026',
     diagram: 'skim',
   },
   {
     id: 'mountains',
     title: 'Mountains decide who gets light',
-    body:
-      'With the Sun that low, any hill can block it. Crater rims and peaks get sunlight most of the time. Crater floors may never see the Sun at all: these permanently shadowed regions are cold enough to keep water ice.',
-    fact: 'A point near the rim of Shackleton crater is lit continuously for about 240 days a year; the south polar shadowed regions cover about 16 000 km².',
+    body: 'With the Sun that low, any hill can block it. Rims and peaks stay lit most of the time. Some crater floors never see the Sun and are cold enough to keep water ice.',
+    fact: 'A point on the rim of Shackleton is lit for about 240 days in a row. Permanently dark areas in the south cover about 16 000 km².',
     source: 'Mazarico et al. 2011, Icarus, doi:10.1016/j.icarus.2010.10.030',
     diagram: 'mountains',
   },
   {
     id: 'mast',
-    title: 'A few metres of height make a big difference',
-    body:
-      'Lifting a solar panel or antenna on a mast lets it see over nearby bumps. Because the Sun grazes the horizon, a small gain in height adds a lot of sunlit hours.',
-    fact: 'At one candidate site, light guaranteed for 99 % of the area rises from 68.0 % of the time at 1 m to 89.3 % at 5 m.',
-    source: 'Barker et al. 2021, Planetary and Space Science, doi:10.1016/j.pss.2020.105119',
+    title: 'A few metres of mast change everything',
+    body: 'The light skims the surface, so a boulder or a small rise casts a shadow hundreds of metres long. Lifting the panel gets it above those shadows.',
+    fact: 'Share of time with sunlight guaranteed over 99 % of one candidate site: 68.0 % at 1 m, 89.3 % at 5 m.',
+    source: 'Barker et al. 2021, Planetary and Space Science, Site 1, doi:10.1016/j.pss.2020.105119',
     diagram: 'mast',
   },
   {
     id: 'earth',
-    title: 'Earth hides behind the horizon too',
-    body:
-      'From the pole the Earth hangs near the horizon and wobbles a few degrees because of libration. When it dips below the terrain, a lander cannot talk to Earth directly and needs a relay satellite.',
-    fact: 'From 89.5° S, 0° E the Earth stays 2° to 4° below the horizon from 14 to 16 November 2026, even with no mountains at all.',
+    title: 'Earth hangs low and wobbles',
+    body: 'The Moon always shows the same face to Earth, but it rocks a little. From the pole the Earth sits near the horizon and drifts above and below it over about four weeks.',
+    fact: 'From 89.5° S, 0° E the Earth stays 2° to 4° below the horizon from 14 to 16 November 2026.',
     source: 'JPL Horizons, queried 12 Nov 2026',
     diagram: 'earth',
   },
   {
     id: 'panel',
-    title: 'Solar panels stand upright',
-    body:
-      'A flat panel facing up catches almost nothing when the Sun is 1° above the horizon. Polar landers mount panels vertically and turn them to follow the Sun around the sky.',
-    fact: 'A horizontal panel with the Sun at 1.3° gets sin(1.3°) ≈ 2.3 % of the sunlight a panel facing the Sun would get.',
+    title: 'Panels stand upright',
+    body: 'Sunlight arrives almost sideways. A panel lying flat catches a sliver of it, so polar landers carry panels that stand vertically and turn to follow the Sun.',
+    fact: 'With the Sun 1.3° up, a flat panel gets sin(1.3°) = 2.3 % of the full flux.',
     source: 'Geometry; Sun elevation from JPL Horizons',
     diagram: 'panel',
   },
 ]
+
+export const whyConclusion = 'Move the site by a few hundred metres or the date by a few days, and the answer changes.'

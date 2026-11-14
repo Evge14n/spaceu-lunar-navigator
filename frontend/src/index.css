@@ -334,7 +334,8 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .d-ray { stroke: var(--sun); stroke-width: 1.5; }
 .d-ray-blocked { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: 0.6; }
 .d-panel { fill: var(--ink); }
-.d-label { fill: var(--ink); font-size: 11px; font-family: var(--f-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+.d-num { fill: var(--ink); font-family: var(--f-head); font-weight: 700; font-size: 40px; }
+.d-label { fill: var(--ink); font-size: 13px; font-family: var(--f-mono); text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* ---------- Accuracy (06) ---------- */
 .checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
