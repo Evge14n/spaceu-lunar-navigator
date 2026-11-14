@@ -1,6 +1,6 @@
 // Sheet 05: five ideas behind every number, for students and anyone curious.
 
-import { useApollo, useSites, useYearSummaries } from '../api'
+import { useApollo, useHeights, useSites, useYearSummaries } from '../api'
 import { PageHead } from '../components/PageHead'
 import { WhyDiagram } from '../components/WhyDiagrams'
 import { why, whyConclusion } from '../content/why'
@@ -12,6 +12,7 @@ export default function WhyPage() {
   const sites = useSites()
   const year = useYearSummaries()
   const apollo = useApollo()
+  const heights = useHeights()
 
   // The Earth fact is computed from our own data when it is available.
   const first = sites.data?.[0]
@@ -34,6 +35,11 @@ export default function WhyPage() {
             w.id === 'skim' && apollo.data && fy && first
               ? `For contrast, at Apollo 11 near the equator the Sun climbs to ${apollo.data.sun.max_el.toFixed(0)}°, but it is lit only ${pct(apollo.data.sun.lit_percent)} of the year with nights of ${hours(apollo.data.sun.longest_dark_h)}; ${first.name} is lit ${pct(fy.sun.lit_percent)}.`
               : null
+          const hRow = heights.data?.find((r) => r.site.id === first?.id)
+          const mastFact =
+            w.id === 'mast' && hRow && first
+              ? `Our best-lit point on ${first.name}, one year: ${hRow.heights.map((h) => `${pct(h.sun.lit_percent)} at ${h.height_m} m`).join(', ')}.`
+              : null
           const dataFact = w.id === 'earth' ? earthFact : null
           return (
             <li key={w.id} id={w.id} className="panel why-item">
@@ -48,6 +54,7 @@ export default function WhyPage() {
                 <p>{w.body}</p>
                 <p className="fact">{dataFact ?? w.fact}</p>
                 {apolloFact && <p className="fact">{apolloFact}</p>}
+                {mastFact && <p className="fact">{mastFact}</p>}
                 <p className="src">{dataFact ? 'Computed here from NAIF SPICE and LOLA terrain' : w.source}</p>
               </div>
             </li>

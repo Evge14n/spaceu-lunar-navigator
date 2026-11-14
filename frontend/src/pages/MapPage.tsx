@@ -22,7 +22,7 @@ import {
 import { clampPeriod } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dayMon, deg, hours, latLon, pct, siteNo } from '../format'
+import { dateUtc, dayMon, deg, hours, latLon, pct, siteNo } from '../format'
 import { useAppState } from '../state'
 
 const R_KM = 1737.4
@@ -132,7 +132,12 @@ export default function MapPage() {
   const year = useYearSummaries()
   const custom = siteId?.startsWith('custom:') ?? false
   const tl = useTimeline(siteId && !custom ? siteId : null)
-  const [pick, setPick] = useState<{ lat: string; lon: string }>({ lat: '-89.5', lon: '0' })
+  const [pick, setPickRaw] = useState<{ lat: string; lon: string }>({ lat: '-89.5', lon: '0' })
+  const [picked, setPicked] = useState(false)
+  const setPick = (v: { lat: string; lon: string }) => {
+    setPickRaw(v)
+    setPicked(true)
+  }
   const local = useAsync(canComputeLocally, [])
   const canCompute = !!local.data || !!API_URL
   const customTl = useTimeline(custom ? siteId : null)
@@ -157,7 +162,7 @@ export default function MapPage() {
   const sum = useMemo(() => {
     if (!tl.data || !site) return null
     const [f, e] = clampPeriod(from, to, timesMs(tl.data))
-    return { s: summarize(tl.data, { id: site.id, name: site.name }, f, e), f }
+    return { s: summarize(tl.data, { id: site.id, name: site.name }, f, e), f, e }
   }, [tl.data, site, from, to])
   const yearPct = (id: string) => year.data?.find((y) => y.site.id === id)?.sun.lit_percent
 
@@ -170,7 +175,7 @@ export default function MapPage() {
   const lat = Number(pick.lat)
   const lon = Number(pick.lon)
   const validPick = pick.lat.trim() !== '' && pick.lon.trim() !== '' && Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= -80 && lon >= -180 && lon <= 360
-  const pickXY = validPick ? project(lat, lon) : null
+  const pickXY = validPick && picked ? project(lat, lon) : null
 
   const onPlateClick = (v: View) => (ev: React.MouseEvent<HTMLDivElement>) => {
     const r = ev.currentTarget.getBoundingClientRect()
@@ -183,6 +188,181 @@ export default function MapPage() {
   const meta = layer.data?.meta
   const legend = layer.data?.meta.legend
   const no = siteNo(sites.data, siteId)
+
+  const indexList = (
+    <>
+
+            <p className="label index-head">Index of sites / sunlit share of the year</p>
+            <ul className="index">
+              {list.map((s) => {
+                const v = yearPct(s.id)
+                return (
+                  <li key={s.id}>
+                    <button type="button" aria-pressed={s.id === siteId} onClick={() => setSite(s.id)}>
+                      <span className="no">{siteNo(sites.data, s.id)}</span>
+                      <span className="nm">{s.name}</span>
+                      <span className="pc">{v === undefined ? '' : pct(v)}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+    </>
+  )
+  const siteCard = (
+    <>
+            {site ? (
+              <section className="panel site-card" aria-label={`Site ${no} ${site.name}`}>
+                <div className="card-title">
+                  <h2>{site.name}</h2>
+                  <span className="badge-no">{no}</span>
+                </div>
+                {sum && (
+                  <p className="label period-tag">
+                    Period {dateUtc(sum.f)} to {dateUtc(sum.e)}
+                  </p>
+                )}
+                <p className="coord">
+                  {latLon(site.lat!, site.lon!)}
+                  {site.elevation_m !== null && ` / ${site.elevation_m >= 0 ? '+' : ''}${Math.round(site.elevation_m)} m`}
+                </p>
+                {sum ? (
+                  <>
+                    <div className="cells">
+                      <div className="cell">
+                        <span className="label">Sunlit</span>
+                        <span className="num big">
+                          {sum.s.sun.lit_percent.toFixed(1)}
+                          <small>%</small>
+                        </span>
+                        {site.nasa_avg_illumination_percent !== undefined && <p>NASA 18.6-year map: {pct(site.nasa_avg_illumination_percent)}</p>}
+                      </div>
+                      <div className="cell">
+                        <span className="label">Earth in view</span>
+                        <span className="num big">
+                          {sum.s.earth.visible_percent.toFixed(1)}
+                          <small>%</small>
+                        </span>
+                        <p>Direct link without a relay</p>
+                      </div>
+                    </div>
+                    <div className="cells">
+                      <div className="cell">
+                        <span className="label">Longest darkness</span>
+                        <span className="num mid">{hours(sum.s.sun.longest_dark_h)}</span>
+                      </div>
+                      <div className="cell">
+                        <span className="label">Highest Sun</span>
+                        <span className="num mid">{deg(sum.s.sun.max_el)}</span>
+                      </div>
+                    </div>
+                    {tl.data && (
+                      <div className="strips">
+                        <span className="label">Next 30 days, light and dark</span>
+                        <Strip tl={tl.data} body="sun" from={sum.f} days={30} label="Sunlight" />
+                        <span className="label" style={{ marginTop: 6 }}>
+                          Earth above the horizon
+                        </span>
+                        <Strip tl={tl.data} body="earth" from={sum.f} days={30} label="Earth in view" />
+                        <div className="strip-ticks">
+                          <span>{dayMon(sum.f)}</span>
+                          <span>{dayMon(sum.f + 15 * 86_400_000)}</span>
+                          <span>{dayMon(sum.f + 30 * 86_400_000)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : tl.error ? (
+                  <div className="panel-pad">
+                    <Notice tone="error" title="No timeline for this site yet">
+                      {tl.error.message}
+                    </Notice>
+                  </div>
+                ) : (
+                  <div className="panel-pad">
+                    <div className="skeleton line-skeleton" aria-busy="true" />
+                  </div>
+                )}
+                <div className="card-actions">
+                  <a className="btn" href={href('/timeline')}>
+                    Open timeline
+                  </a>
+                  <a className="btn ghost" href={href('/horizon')}>
+                    Stand on site
+                  </a>
+                </div>
+              </section>
+            ) : (
+              <Notice title="Choose a site in the index below the map" />
+            )}
+
+    </>
+  )
+  const customForm = (
+            <form
+              className="panel custom"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (validPick && canCompute) setSite(customId(lat, lon))
+              }}
+            >
+              <span className="label">Your own point, or click the map</span>
+              <div className="row">
+                <div className="field">
+                  <label htmlFor="clat">Latitude</label>
+                  <input id="clat" inputMode="decimal" value={pick.lat} onChange={(e) => setPick({ ...pick, lat: e.target.value })} aria-invalid={!validPick} />
+                </div>
+                <div className="field">
+                  <label htmlFor="clon">Longitude, east</label>
+                  <input id="clon" inputMode="decimal" value={pick.lon} onChange={(e) => setPick({ ...pick, lon: e.target.value })} aria-invalid={!validPick} />
+                </div>
+                <button className="btn ghost" type="submit" disabled={!validPick || !canCompute}>
+                  Compute
+                </button>
+              </div>
+              {!validPick && <p className="err">Latitude between −90 and −80, longitude between −180 and 360.</p>}
+              {custom && customTl.loading && <div className="skeleton line-skeleton" aria-busy="true" />}
+              {custom && customTl.error && (
+                <Notice tone="error" title="Could not compute this point">
+                  {customTl.error.message}
+                </Notice>
+              )}
+              {custom && customTl.data && (() => {
+                const ms = timesMs(customTl.data)
+                const [f, e] = clampPeriod(from, to, ms)
+                const cs = summarize(customTl.data, { id: siteId!, name: 'Your point' }, f, e)
+                return (
+                  <div aria-live="polite">
+                    <div className="cells" style={{ border: '1px solid var(--ink)' }}>
+                      <div className="cell">
+                        <span className="label">Sunlit</span>
+                        <span className="num mid">{pct(cs.sun.lit_percent)}</span>
+                      </div>
+                      <div className="cell">
+                        <span className="label">Earth in view</span>
+                        <span className="num mid">{pct(cs.earth.visible_percent)}</span>
+                      </div>
+                    </div>
+                    <div className="card-actions" style={{ border: '1px solid var(--ink)', borderTop: 0 }}>
+                      <button type="button" className="btn" onClick={() => navigate('/timeline')}>
+                        Timeline
+                      </button>
+                      <button type="button" className="btn ghost" onClick={() => navigate('/horizon')}>
+                        Horizon
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+              <p className="small muted">
+                {local.data
+                  ? 'Computed in your browser from the same ephemerides and a 240 m terrain grid. Listed sites use 5 m terrain.'
+                  : API_URL
+                    ? 'Computed by the live API from the same ephemerides and LOLA terrain.'
+                    : 'The point is marked on the map. The in-browser calculation (same ephemerides, 240 m terrain) switches on when its data files are published; listed sites use 5 m terrain.'}
+              </p>
+            </form>
+  )
 
   return (
     <div className="page map">
@@ -292,167 +472,13 @@ export default function MapPage() {
               </div>
             </div>
 
-            <p className="label index-head">Index of sites / sunlit share of the year</p>
-            <ul className="index">
-              {list.map((s) => {
-                const v = yearPct(s.id)
-                return (
-                  <li key={s.id}>
-                    <button type="button" aria-pressed={s.id === siteId} onClick={() => setSite(s.id)}>
-                      <span className="no">{siteNo(sites.data, s.id)}</span>
-                      <span className="nm">{s.name}</span>
-                      <span className="pc">{v === undefined ? '' : pct(v)}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="index-desk">{indexList}</div>
           </section>
 
           <aside className="map-side">
-            {site ? (
-              <section className="panel site-card" aria-label={`Site ${no} ${site.name}`}>
-                <div className="card-title">
-                  <h2>{site.name}</h2>
-                  <span className="badge-no">{no}</span>
-                </div>
-                <p className="coord">
-                  {latLon(site.lat!, site.lon!)}
-                  {site.elevation_m !== null && ` / ${site.elevation_m >= 0 ? '+' : ''}${Math.round(site.elevation_m)} m`}
-                </p>
-                {sum ? (
-                  <>
-                    <div className="cells">
-                      <div className="cell">
-                        <span className="label">Sunlit</span>
-                        <span className="num big">
-                          {sum.s.sun.lit_percent.toFixed(1)}
-                          <small>%</small>
-                        </span>
-                        {site.nasa_avg_illumination_percent !== undefined && <p>NASA 18.6-year map: {pct(site.nasa_avg_illumination_percent)}</p>}
-                      </div>
-                      <div className="cell">
-                        <span className="label">Earth in view</span>
-                        <span className="num big">
-                          {sum.s.earth.visible_percent.toFixed(1)}
-                          <small>%</small>
-                        </span>
-                        <p>Direct link without a relay</p>
-                      </div>
-                    </div>
-                    <div className="cells">
-                      <div className="cell">
-                        <span className="label">Longest darkness</span>
-                        <span className="num mid">{hours(sum.s.sun.longest_dark_h)}</span>
-                      </div>
-                      <div className="cell">
-                        <span className="label">Highest Sun</span>
-                        <span className="num mid">{deg(sum.s.sun.max_el)}</span>
-                      </div>
-                    </div>
-                    {tl.data && (
-                      <div className="strips">
-                        <span className="label">Next 30 days, light and dark</span>
-                        <Strip tl={tl.data} body="sun" from={sum.f} days={30} label="Sunlight" />
-                        <span className="label" style={{ marginTop: 6 }}>
-                          Earth above the horizon
-                        </span>
-                        <Strip tl={tl.data} body="earth" from={sum.f} days={30} label="Earth in view" />
-                        <div className="strip-ticks">
-                          <span>{dayMon(sum.f)}</span>
-                          <span>{dayMon(sum.f + 15 * 86_400_000)}</span>
-                          <span>{dayMon(sum.f + 30 * 86_400_000)}</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : tl.error ? (
-                  <div className="panel-pad">
-                    <Notice tone="error" title="No timeline for this site yet">
-                      {tl.error.message}
-                    </Notice>
-                  </div>
-                ) : (
-                  <div className="panel-pad">
-                    <div className="skeleton line-skeleton" aria-busy="true" />
-                  </div>
-                )}
-                <div className="card-actions">
-                  <a className="btn" href={href('/timeline')}>
-                    Open timeline
-                  </a>
-                  <a className="btn ghost" href={href('/horizon')}>
-                    Stand on site
-                  </a>
-                </div>
-              </section>
-            ) : (
-              <Notice title="Choose a site in the index below the map" />
-            )}
-
-            <form
-              className="panel custom"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (validPick && canCompute) setSite(customId(lat, lon))
-              }}
-            >
-              <span className="label">Your own point, or click the map</span>
-              <div className="row">
-                <div className="field">
-                  <label htmlFor="clat">Latitude</label>
-                  <input id="clat" inputMode="decimal" value={pick.lat} onChange={(e) => setPick({ ...pick, lat: e.target.value })} aria-invalid={!validPick} />
-                </div>
-                <div className="field">
-                  <label htmlFor="clon">Longitude, east</label>
-                  <input id="clon" inputMode="decimal" value={pick.lon} onChange={(e) => setPick({ ...pick, lon: e.target.value })} aria-invalid={!validPick} />
-                </div>
-                <button className="btn ghost" type="submit" disabled={!validPick || !canCompute}>
-                  Compute
-                </button>
-              </div>
-              {!validPick && <p className="err">Latitude between −90 and −80, longitude between −180 and 360.</p>}
-              {custom && customTl.loading && <div className="skeleton line-skeleton" aria-busy="true" />}
-              {custom && customTl.error && (
-                <Notice tone="error" title="Could not compute this point">
-                  {customTl.error.message}
-                </Notice>
-              )}
-              {custom && customTl.data && (() => {
-                const ms = timesMs(customTl.data)
-                const [f, e] = clampPeriod(from, to, ms)
-                const cs = summarize(customTl.data, { id: siteId!, name: 'Your point' }, f, e)
-                return (
-                  <div aria-live="polite">
-                    <div className="cells" style={{ border: '1px solid var(--ink)' }}>
-                      <div className="cell">
-                        <span className="label">Sunlit</span>
-                        <span className="num mid">{pct(cs.sun.lit_percent)}</span>
-                      </div>
-                      <div className="cell">
-                        <span className="label">Earth in view</span>
-                        <span className="num mid">{pct(cs.earth.visible_percent)}</span>
-                      </div>
-                    </div>
-                    <div className="card-actions" style={{ border: '1px solid var(--ink)', borderTop: 0 }}>
-                      <button type="button" className="btn" onClick={() => navigate('/timeline')}>
-                        Timeline
-                      </button>
-                      <button type="button" className="btn ghost" onClick={() => navigate('/horizon')}>
-                        Horizon
-                      </button>
-                    </div>
-                  </div>
-                )
-              })()}
-              <p className="small muted">
-                {local.data
-                  ? 'Computed in your browser from the same ephemerides and a 240 m terrain grid. Listed sites use 5 m terrain.'
-                  : API_URL
-                    ? 'Computed by the live API from the same ephemerides and LOLA terrain.'
-                    : 'The point is marked on the map. The in-browser calculation (same ephemerides, 240 m terrain) switches on when its data files are published; listed sites use 5 m terrain.'}
-              </p>
-            </form>
+            {siteCard}
+            <div className="index-mob">{indexList}</div>
+            {customForm}
           </aside>
         </div>
       )}

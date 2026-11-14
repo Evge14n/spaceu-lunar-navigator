@@ -2,7 +2,7 @@
 // Default view is at eye level, 2 m above the ground, where elevations read as they are measured.
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { indexRange, nextTransition, riseSet, skyAt, timesMs, useHorizon, useSites, useTerrain, useTimeline } from '../api'
+import { indexRange, isCustom, nextTransition, riseSet, skyAt, timesMs, useHorizon, useSites, useTerrain, useTimeline } from '../api'
 import { clampPeriod, PeriodMovedNote, SiteSelect, TimeSlider } from '../components/Controls'
 import { HorizonPanorama } from '../components/HorizonPanorama'
 import { Notice } from '../components/Notice'
@@ -40,10 +40,11 @@ export default function View3DPage() {
     return () => window.clearInterval(id)
   }, [playing, tt, f, e, setTime])
 
+  const custom = !!siteId && isCustom(siteId)
   const ready = !!(tl.data && terrain.data)
-  const sky = ready ? skyAt(tl.data!, tt, ms) : null
-  const sunTr = ready ? nextTransition(tl.data!, 'sun', tt, ms) : null
-  const earthTr = ready ? nextTransition(tl.data!, 'earth', tt, ms) : null
+  const sky = tl.data ? skyAt(tl.data, tt, ms) : null
+  const sunTr = tl.data ? nextTransition(tl.data, 'sun', tt, ms) : null
+  const earthTr = tl.data ? nextTransition(tl.data, 'earth', tt, ms) : null
   const lookDir = sky ? (look === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
   const m = terrain.data?.meta
   const site = sites.data?.find((x) => x.id === siteId)
@@ -89,7 +90,9 @@ export default function View3DPage() {
           <span>{dateTimeUtc(tt)}</span>
         </div>
         <div className="stage">
-          {terrain.error || tl.error ? (
+          {custom ? (
+            <div className="stage-loading">3D terrain is drawn for the listed sites. For your point, the whole horizon is below, computed from the 240 m grid.</div>
+          ) : terrain.error || tl.error ? (
             <div className="stage-loading">
               <Notice tone="error" title="No 3D data for this site yet">
                 {(terrain.error ?? tl.error)?.message}
@@ -105,7 +108,7 @@ export default function View3DPage() {
             </Suspense>
           )}
           <div className="ov ov-ladder" ref={ladder} aria-hidden="true">
-            {[0, 2, 4, 6].map((v) => (
+            {[-4, -2, 0, 2, 4, 6].map((v) => (
               <span key={v} data-el={v}>
                 {v}°
               </span>
