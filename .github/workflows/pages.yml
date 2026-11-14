@@ -35,6 +35,8 @@ jobs:
       - run: npm run build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - name: Slides next to the site (docs/slides -> /slides/)
+        run: if [ -d ../docs/slides ]; then cp -r ../docs/slides dist/slides; fi
       - name: Size of the site
         run: du -sh dist dist/data || true
       - uses: actions/upload-pages-artifact@v3
