@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import {
   API_URL,
+  canComputeLocally,
   customId,
   getIlluminationLayer,
   runs,
@@ -132,6 +133,9 @@ export default function MapPage() {
   const custom = siteId?.startsWith('custom:') ?? false
   const tl = useTimeline(siteId && !custom ? siteId : null)
   const [pick, setPick] = useState<{ lat: string; lon: string }>({ lat: '-89.5', lon: '0' })
+  const local = useAsync(canComputeLocally, [])
+  const canCompute = !!local.data || !!API_URL
+  const customTl = useTimeline(custom ? siteId : null)
 
   const list = useMemo(() => (sites.data ?? []).filter((s) => s.lat !== null && s.lon !== null), [sites.data])
   const view: View = useMemo(() => {
@@ -390,10 +394,7 @@ export default function MapPage() {
               className="panel custom"
               onSubmit={(e) => {
                 e.preventDefault()
-                if (validPick && API_URL) {
-                  setSite(customId(lat, lon))
-                  navigate('/timeline')
-                }
+                if (validPick && canCompute) setSite(customId(lat, lon))
               }}
             >
               <span className="label">Your own point, or click the map</span>
@@ -406,15 +407,50 @@ export default function MapPage() {
                   <label htmlFor="clon">Longitude, east</label>
                   <input id="clon" inputMode="decimal" value={pick.lon} onChange={(e) => setPick({ ...pick, lon: e.target.value })} aria-invalid={!validPick} />
                 </div>
-                <button className="btn ghost" type="submit" disabled={!validPick || !API_URL}>
+                <button className="btn ghost" type="submit" disabled={!validPick || !canCompute}>
                   Compute
                 </button>
               </div>
               {!validPick && <p className="err">Latitude between −90 and −80, longitude between −180 and 360.</p>}
+              {custom && customTl.loading && <div className="skeleton line-skeleton" aria-busy="true" />}
+              {custom && customTl.error && (
+                <Notice tone="error" title="Could not compute this point">
+                  {customTl.error.message}
+                </Notice>
+              )}
+              {custom && customTl.data && (() => {
+                const ms = timesMs(customTl.data)
+                const [f, e] = clampPeriod(from, to, ms)
+                const cs = summarize(customTl.data, { id: siteId!, name: 'Your point' }, f, e)
+                return (
+                  <div aria-live="polite">
+                    <div className="cells" style={{ border: '1px solid var(--ink)' }}>
+                      <div className="cell">
+                        <span className="label">Sunlit</span>
+                        <span className="num mid">{pct(cs.sun.lit_percent)}</span>
+                      </div>
+                      <div className="cell">
+                        <span className="label">Earth in view</span>
+                        <span className="num mid">{pct(cs.earth.visible_percent)}</span>
+                      </div>
+                    </div>
+                    <div className="card-actions" style={{ border: '1px solid var(--ink)', borderTop: 0 }}>
+                      <button type="button" className="btn" onClick={() => navigate('/timeline')}>
+                        Timeline
+                      </button>
+                      <button type="button" className="btn ghost" onClick={() => navigate('/horizon')}>
+                        Horizon
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
               <p className="small muted">
-                {API_URL
-                  ? 'Computed by the live API from the same ephemerides and LOLA terrain.'
-                  : 'The point is marked on the map. The in-browser calculation for any point (same ephemerides, 240 m terrain) is being added; listed sites use 5 m terrain.'}
+                {local.data
+                  ? 'Computed in your browser from the same ephemerides and a 240 m terrain grid. Listed sites use 5 m terrain.'
+                  : API_URL
+                    ? 'Computed by the live API from the same ephemerides and LOLA terrain.'
+                    : 'The point is marked on the map. The in-browser calculation (same ephemerides, 240 m terrain) switches on when its data files are published; listed sites use 5 m terrain.'}
               </p>
             </form>
           </aside>
