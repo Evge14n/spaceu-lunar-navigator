@@ -2,11 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="description" content="Compare lunar south pole landing sites and dates by sunlight and line of sight to Earth, with real terrain. NASA Space Apps 2026, team SpaceU." />
-    <meta name="theme-color" content="#1a1917" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lunar Landing Site Navigator</title>
+    <meta name="description" content="Compare landing sites at the lunar south pole by sunlight and line of sight to Earth, with real NASA terrain and ephemerides. NASA Space Apps 2026, team SpaceU." />
+    <meta name="theme-color" content="#f7f8f9" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lunar Landing Site Navigator" />
+    <meta property="og:description" content="Ten candidate sites at the lunar south pole: how long each stays lit and when Earth is in view, from NASA SPICE and LOLA terrain." />
+    <meta property="og:image" content="https://evge14n.github.io/spaceu-lunar-navigator/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preload" href="./fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/IBMPlexSans-var.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/IBMPlexMono-500.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // The map is the landing sheet: start fetching its picture before the app runs.
+      if (location.hash === '' || location.hash.indexOf('#/map') === 0) {
+        var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = './layers/illumination-1024.webp';
+        l.media = '(max-width: 700px)'; document.head.appendChild(l);
+        var m = document.createElement('link'); m.rel = 'preload'; m.as = 'image'; m.href = './layers/illumination.webp';
+        m.media = '(min-width: 701px)'; document.head.appendChild(m);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

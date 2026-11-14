@@ -55,7 +55,8 @@ export function HorizonPanorama({
   for (let e = Math.ceil(lo); e <= hi; e += hi - lo > 10 ? 2 : 1) ticks.push(e)
 
   return (
-    <figure className="pano">
+    <figure style={{ margin: 0 }}>
+      <div className="pano-scroll" tabIndex={0} role="region" aria-label="Horizon panorama, scrolls sideways on small screens">
       <svg viewBox={`-28 -4 ${W + 36} ${H + 26}`} role="img" aria-label={`Horizon panorama. Sun at azimuth ${sky.sun.az.toFixed(0)}°, Earth at azimuth ${sky.earth.az.toFixed(0)}°`}>
         {ticks.map((e) => (
           <g key={e}>
@@ -68,12 +69,13 @@ export function HorizonPanorama({
         <path d={earthPath} className="pano-track-earth" />
         <circle cx={x(sky.earth.az)} cy={y(sky.earth.el)} r={Math.max(3, sky.earth.angular_radius_deg * pxPerDeg)} className={`pano-earth${sky.earth.visible ? '' : ' hidden'}`} />
         <circle cx={x(sky.sun.az)} cy={y(sky.sun.el)} r={Math.max(3, sky.sun.angular_radius_deg * pxPerDeg)} className={`pano-sun${sky.sun.visible_fraction > 0 ? '' : ' hidden'}`} />
-        {[['N', 0], ['E', 90], ['S', 180], ['W', 270], ['N', 360]].map(([l, az]) => (
-          <text key={`${l}${az}`} x={x(az as number)} y={H + 16} textAnchor="middle" className="pano-dir">{l}</text>
+        {[['N 0°', 0], ['E 90°', 90], ['S 180°', 180], ['W 270°', 270], ['N 360°', 360]].map(([l, az]) => (
+          <text key={`${l}${az}`} x={x(az as number)} y={H + 16} textAnchor={(az as number) === 0 ? 'start' : (az as number) === 360 ? 'end' : 'middle'} className="pano-dir">{l}</text>
         ))}
       </svg>
-      <figcaption>
-        Horizon all around the site (vertical scale stretched). Dotted lines: paths of the Sun and the Earth over the period. A faded disc is behind the terrain.
+      </div>
+      <figcaption className="small muted" style={{ marginTop: 6 }}>
+        Horizon all around the site (vertical scale stretched). Dotted lines: paths of the Sun and the Earth over the next 30 days. A faded disc is behind the terrain.
       </figcaption>
     </figure>
   )

@@ -11,7 +11,6 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  formatHours,
   indexRange,
   nextTransition,
   periodPresets,
@@ -20,15 +19,15 @@ import {
   summarize,
   timesMs,
   useSites,
-  useHorizon,
   useTimeline,
   visibleFlags,
   riseSet,
   type Timeline,
 } from '../api'
-import { clampPeriod, fmtUtc, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
+import { clampPeriod, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
-import { HorizonPanorama } from '../components/HorizonPanorama'
+import { PageHead } from '../components/PageHead'
+import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteTitle } from '../format'
 import { useAppState } from '../state'
 
 /** One tick per day (or every few days for long periods), at 00:00 UTC. */
@@ -41,10 +40,7 @@ function dayTicks(from: number, to: number): number[] {
   return out
 }
 
-const fmtTick = (t: number) => {
-  const d = new Date(t)
-  return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
+const fmtTick = (t: number) => dayMon(t)
 
 /** Strip of shaded windows when a body is visible. */
 const WindowStrip = memo(function WindowStrip({
@@ -70,24 +66,26 @@ const WindowStrip = memo(function WindowStrip({
   const span = to - from || 1
   const x = (t: number) => ((t - from) / span) * 100
   return (
-    <div className="strip-row">
-      <span className="strip-label">{label}</span>
-      <svg className={`strip strip-${body}`} viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label={`${label}: ${rs.length} windows in the period`}>
-        <rect x="0" y="0" width="100" height="10" className="strip-bg" />
-        {rs.map((r) => (
-          <rect key={r.i0} x={x(ms[r.i0])} width={Math.max(0.15, x(ms[r.i1]) - x(ms[r.i0]))} y="0" height="10" className="strip-on" />
-        ))}
-      </svg>
+    <div className="wrow">
+      <span className="label">{label}</span>
+      <div className="strip" role="img" aria-label={`${label}: ${rs.length} windows in the period; hatching means not visible`}>
+        <svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+          {rs.map((r) => (
+            <rect key={r.i0} x={x(ms[r.i0])} width={Math.max(0.15, x(ms[r.i1] + 3_600_000) - x(ms[r.i0]))} y="0" height="10" className={`strip-on ${body}`} />
+          ))}
+        </svg>
+      </div>
     </div>
   )
 })
 
-function TimelineHead() {
+function TimelineHead({ stamp }: { stamp: string }) {
   return (
-    <div className="page-head">
-      <h1>Timeline</h1>
-      <p className="lede">Sun and Earth elevation against the real horizon of the site. Shaded strips show when each is visible.</p>
-    </div>
+    <PageHead
+      stamp={stamp}
+      title="Sun and Earth against the real horizon"
+      lede="Elevation of the Sun and the Earth above the local level, and the height of the hills in the same direction. Move the time to see what is up."
+    />
   )
 }
 
@@ -95,7 +93,8 @@ export default function TimelinePage() {
   const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
   const sites = useSites()
   const tl = useTimeline(siteId)
-  const horizon = useHorizon(siteId)
+  const site = sites.data?.find((x) => x.id === siteId)
+  const stamp = `Sheet 03 / ${siteTitle(sites.data, siteId)}${site && site.lat !== null && site.lon !== null ? ` / ${latLon(site.lat, site.lon)}` : ''}`
 
   const view = useMemo(() => {
     if (!tl.data) return null
@@ -126,14 +125,14 @@ export default function TimelinePage() {
   if (sites.loading || tl.loading)
     return (
       <div className="page timeline">
-        <TimelineHead />
+        <TimelineHead stamp={stamp} />
         <div className="skeleton page-skeleton" aria-busy="true" />
       </div>
     )
   if (tl.error)
     return (
       <div className="page timeline">
-        <TimelineHead />
+        <TimelineHead stamp={stamp} />
         {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
         <Notice tone="error" title="No timeline for this site yet">{tl.error.message}</Notice>
       </div>
@@ -149,7 +148,7 @@ export default function TimelinePage() {
 
   return (
     <div className="page timeline">
-      <TimelineHead />
+      <TimelineHead stamp={stamp} />
 
       <div className="toolbar">
         {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
@@ -157,77 +156,107 @@ export default function TimelinePage() {
       </div>
 
       <PeriodMovedNote moved={view.moved} />
-      <section className="readout" aria-label="At the selected time">
-        <div className="read read-sun">
-          <h2>Sun</h2>
-          <p className="big">{riseSet(sunTr, 'Sunset in', 'Below the terrain, sunrise in', 'No sunset in the data', 'No sunrise in the data')}</p>
-          <dl>
-            <dt>Elevation</dt><dd>{sky.sun.el.toFixed(2)}°</dd>
-            <dt>Terrain in that direction</dt><dd>{sky.sun.horizon_el.toFixed(2)}°</dd>
-            <dt>Azimuth</dt><dd>{sky.sun.az.toFixed(1)}°</dd>
-            <dt>Disc visible</dt><dd>{Math.round(sky.sun.visible_fraction * 100)} %</dd>
-          </dl>
+      <section className="panel now" aria-label="At the selected time">
+        <div>
+          <span className="label">Sun now / {dateTimeUtc(tt)}</span>
+          <span className="num sun-t">{riseSet(sunTr, 'Sets in', 'Rises in', 'Never sets in the data', 'Never rises in the data')}</span>
+          <p className="mono">
+            {Math.abs(sky.sun.el).toFixed(2)}° {sky.sun.el >= 0 ? 'above' : 'below'} level / azimuth {sky.sun.az.toFixed(0)}° / disc {Math.round(sky.sun.visible_fraction * 100)} % visible
+          </p>
         </div>
-        <div className="read read-earth">
-          <h2>Earth</h2>
-          <p className="big">{riseSet(earthTr, 'Earthset in', 'Hidden, Earthrise in', 'No Earthset in the data', 'No Earthrise in the data')}</p>
-          <dl>
-            <dt>Elevation</dt><dd>{sky.earth.el.toFixed(2)}°</dd>
-            <dt>Terrain in that direction</dt><dd>{sky.earth.horizon_el.toFixed(2)}°</dd>
-            <dt>Azimuth</dt><dd>{sky.earth.az.toFixed(1)}°</dd>
-            <dt>Direct link</dt><dd>{sky.earth.visible ? 'possible' : 'no line of sight'}</dd>
-          </dl>
+        <div>
+          <span className="label">Earth now</span>
+          <span className="num earth-t">{riseSet(earthTr, 'Sets in', 'Rises in', 'Never sets in the data', 'Never rises in the data')}</span>
+          <p className="mono">
+            {Math.abs(sky.earth.el).toFixed(2)}° {sky.earth.el >= 0 ? 'above' : 'below'} level / azimuth {sky.earth.az.toFixed(0)}° / {sky.earth.visible ? 'direct link possible' : 'no direct link'}
+          </p>
         </div>
-        <div className="read read-period">
-          <h2>Whole period</h2>
-          <dl>
-            <dt>Sunlit</dt><dd>{sum.sun.lit_percent} %</dd>
-            <dt>Longest darkness</dt><dd>{formatHours(sum.sun.longest_dark_h)}</dd>
-            <dt>Earth visible</dt><dd>{sum.earth.visible_percent} %</dd>
-            <dt>Highest Sun</dt><dd>{sum.sun.max_el.toFixed(2)}°</dd>
-          </dl>
+        <div>
+          <span className="label">Whole period</span>
+          <span className="num mid">
+            {pct(sum.sun.lit_percent)} sunlit / {pct(sum.earth.visible_percent)} Earth
+          </span>
+          <p className="mono">
+            Longest darkness {fmtH(sum.sun.longest_dark_h)} / highest Sun {deg(sum.sun.max_el)}
+          </p>
         </div>
       </section>
 
-      <TimeSlider from={view.f} to={view.e} value={tt} onChange={setTime} />
-
-      <figure className="chart" aria-label="Elevation of the Sun and the Earth over time">
-        <ResponsiveContainer width="100%" height={320}>
+      <figure className="panel chart-panel" aria-label="Elevation of the Sun and the Earth over time" style={{ margin: 0 }}>
+        <div className="chart-top">
+          <span className="label">Elevation above the local level, degrees</span>
+          <span className="key label">
+            <span>
+              <i className="k-sun" />
+              Sun
+            </span>
+            <span>
+              <i className="k-earth" />
+              Earth
+            </span>
+            <span>
+              <i className="k-terrain" />
+              Terrain toward the Sun
+            </span>
+            <span>
+              <i className="k-earth" style={{ opacity: 0.5 }} />
+              Terrain toward Earth, dashed
+            </span>
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={340}>
           <ComposedChart
             data={view.rows}
-            margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             onClick={(e) => {
               const x = (e as { activeLabel?: number | string } | null)?.activeLabel
               if (x !== undefined) setTime(Number(x))
             }}
           >
-            <CartesianGrid stroke="var(--grid)" vertical={false} />
-            <XAxis dataKey="t" type="number" domain={[view.f, view.e]} scale="time" ticks={dayTicks(view.f, view.e)} tickFormatter={fmtTick} stroke="var(--ink-3)" tick={{ fontSize: 12 }} minTickGap={16} />
-            <YAxis unit="°" stroke="var(--ink-3)" tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
-            <Tooltip
-              labelFormatter={(v) => fmtUtc(Number(v))}
-              formatter={(v, name) => [`${Number(v).toFixed(2)}°`, name]}
-              contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8 }}
-              labelStyle={{ color: 'var(--ink-2)' }}
-              itemStyle={{ color: 'var(--ink-1)' }}
+            <CartesianGrid stroke="var(--line)" vertical={false} />
+            <XAxis
+              dataKey="t"
+              type="number"
+              domain={[view.f, view.e]}
+              scale="time"
+              ticks={dayTicks(view.f, view.e)}
+              tickFormatter={fmtTick}
+              stroke="var(--ink)"
+              tick={{ fontSize: 12, fontFamily: 'var(--f-mono)', fill: 'var(--ink-2)' }}
+              minTickGap={20}
             />
-            <Area dataKey="sunHz" name="Terrain toward the Sun" type="monotone" stroke="none" fill="var(--terrain)" fillOpacity={0.9} isAnimationActive={false} baseValue="dataMin" />
-            <Line dataKey="earthHz" name="Terrain toward Earth" type="monotone" stroke="var(--earth)" strokeOpacity={0.45} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
-            <Line dataKey="sun" name="Sun elevation" type="monotone" stroke="var(--sun)" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <Line dataKey="earth" name="Earth elevation" type="monotone" stroke="var(--earth)" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <ReferenceLine x={Math.min(Math.max(tChart, view.f), view.e)} stroke="var(--ink-1)" strokeWidth={1} />
+            <YAxis
+              stroke="var(--ink)"
+              tick={{ fontSize: 12, fontFamily: 'var(--f-mono)', fill: 'var(--ink-2)' }}
+              width={50}
+              tickFormatter={(v: number) => `${v > 0 ? '+' : ''}${v}°`}
+              domain={['auto', 'auto']}
+            />
+            <Tooltip
+              labelFormatter={(v) => dateTimeUtc(Number(v))}
+              formatter={(v, name) => [`${Number(v).toFixed(2)}°`, name]}
+              contentStyle={{ background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 0, fontFamily: 'var(--f-mono)', fontSize: 12 }}
+              labelStyle={{ color: 'var(--ink)' }}
+              itemStyle={{ color: 'var(--ink)' }}
+            />
+            <Area dataKey="sunHz" name="Terrain toward the Sun" type="monotone" stroke="var(--ink)" strokeWidth={1.5} fill="var(--terrain)" fillOpacity={1} isAnimationActive={false} baseValue="dataMin" />
+            <Line dataKey="earthHz" name="Terrain toward Earth" type="monotone" stroke="var(--earth)" strokeOpacity={0.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+            <ReferenceLine y={0} stroke="var(--ink)" strokeDasharray="2 3" />
+            <Line dataKey="sun" name="Sun" type="monotone" stroke="var(--sun)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+            <Line dataKey="earth" name="Earth" type="monotone" stroke="var(--earth)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+            <ReferenceLine x={Math.min(Math.max(tChart, view.f), view.e)} stroke="var(--ink)" strokeWidth={2} />
           </ComposedChart>
         </ResponsiveContainer>
-        <div className="strips">
+        <div className="wstrips">
           <WindowStrip tl={d} ms={view.ms} body="sun" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Sun visible" />
-          <WindowStrip tl={d} ms={view.ms} body="earth" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Earth visible" />
+          <WindowStrip tl={d} ms={view.ms} body="earth" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Earth in view" />
         </div>
-        <figcaption>
-          Grey area: height of the mountains in the direction of the Sun. The Sun counts as visible while any part of its disc is above them. Click the chart to jump to a moment.
+        <TimeSlider from={view.f} to={view.e} value={tt} onChange={setTime} />
+        <figcaption className="small muted">
+          Grey: the hills in the direction of the Sun. The Sun counts as visible while any part of its disc is above them. Hatching on the strips means not visible. Click the chart to jump to a moment.
         </figcaption>
       </figure>
-      {horizon.data && <HorizonPanorama horizon={horizon.data} sky={sky} tl={d} i0={view.i0} i1={view.i1} />}
-      <p className="source">Source: {d.source}</p>
+      <p className="small muted">Source: {d.source}</p>
     </div>
   )
 }

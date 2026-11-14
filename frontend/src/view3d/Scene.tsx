@@ -60,13 +60,13 @@ function TerrainMesh({ terrain }: { terrain: Terrain }) {
   const geo = useTerrainGeometry(terrain)
   return (
     <mesh geometry={geo} receiveShadow castShadow>
-      <meshStandardMaterial color="#8d8a84" roughness={0.97} metalness={0} />
+      <meshStandardMaterial color="#9a9ea3" roughness={0.97} metalness={0} />
     </mesh>
   )
 }
 
 /** Far terrain from the horizon mask: a ring "wall" at FAR_R whose top matches the mask angle. */
-function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number; groundY: number }) {
+function FarHorizon({ horizon, eyeY }: { horizon: Horizon; eyeY: number }) {
   const geo = useMemo(() => {
     const n = horizon.elevation_deg.length
     const pos: number[] = []
@@ -76,7 +76,7 @@ function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number
       const el = horizon.elevation_deg[i % n]
       const [dx, , dz] = dirFromAzEl(az, 0)
       const top = eyeY + FAR_R * Math.tan((el * Math.PI) / 180)
-      pos.push(dx * FAR_R, groundY, dz * FAR_R, dx * FAR_R, Math.max(top, groundY + 1), dz * FAR_R)
+      pos.push(dx * FAR_R, Math.min(top, eyeY) - 8000, dz * FAR_R, dx * FAR_R, top, dz * FAR_R)
       if (i < n) {
         const a = i * 2
         idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
@@ -87,17 +87,11 @@ function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number
     g.setIndex(idx)
     g.computeVertexNormals()
     return g
-  }, [horizon, eyeY, groundY])
+  }, [horizon, eyeY])
   return (
-    <>
-      <mesh geometry={geo}>
-        <meshBasicMaterial color="#2c2a27" side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, groundY, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[100, FAR_R, 96]} />
-        <meshStandardMaterial color="#45433f" roughness={1} />
-      </mesh>
-    </>
+    <mesh geometry={geo}>
+      <meshBasicMaterial color="#3a3d41" side={THREE.DoubleSide} />
+    </mesh>
   )
 }
 
@@ -176,10 +170,16 @@ function labelTexture(text: string, color: string) {
   return t
 }
 
+/** Sprite size is relative to the lens; keep labels the same size on screen for the narrow eye-level lens. */
+let labelK = 1
+export function setLabelScale(fovDeg: number) {
+  labelK = Math.tan((fovDeg * Math.PI) / 360) / Math.tan((55 * Math.PI) / 360)
+}
+
 /** Text that always faces the camera and keeps a constant size on screen. */
 function Label({ text, color, position, offsetY = 0 }: { text: string; color: string; position: THREE.Vector3 | [number, number, number]; offsetY?: number }) {
   return (
-    <sprite position={position} scale={[0.15, 0.0375, 1]} center={new THREE.Vector2(0.5, -offsetY)} renderOrder={10}>
+    <sprite position={position} scale={[0.15 * labelK, 0.0375 * labelK, 1]} center={new THREE.Vector2(0.5, -offsetY)} renderOrder={10}>
       <spriteMaterial map={labelTexture(text, color)} transparent depthTest={false} depthWrite={false} sizeAttenuation={false} />
     </sprite>
   )
@@ -246,6 +246,9 @@ function Compass({ eyeY }: { eyeY: number }) {
 
 export type CameraMode = 'site' | 'overview'
 
+const EYE_FOV = 20
+const ABOVE_FOV = 55
+
 function CameraRig({
   mode,
   eyeY,
@@ -262,12 +265,29 @@ function CameraRig({
   const latestLook = useRef(lookDir)
   latestLook.current = lookDir
   const eyeRef = useRef(eyeY)
-
+  const modeRef = useRef(mode)
+  modeRef.current = mode
   // Created in an effect so StrictMode's test unmount/remount reconnects the listeners.
   useEffect(() => {
     const c = new OrbitControls(camera, gl.domElement)
     controls.current = c
+    // The wheel scrolls the page; Ctrl + wheel zooms (lens in eye-level view, distance from above).
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) {
+        c.enableZoom = false
+        return
+      }
+      e.preventDefault()
+      if (modeRef.current === 'site') {
+        const cam = camera as THREE.PerspectiveCamera
+        cam.fov = Math.min(60, Math.max(6, cam.fov * (e.deltaY > 0 ? 1.1 : 1 / 1.1)))
+        cam.updateProjectionMatrix()
+        c.enableZoom = false
+      } else c.enableZoom = true
+    }
+    gl.domElement.addEventListener('wheel', onWheel, { capture: true, passive: false })
     return () => {
+      gl.domElement.removeEventListener('wheel', onWheel, { capture: true })
       c.dispose()
       controls.current = null
     }
@@ -293,26 +313,85 @@ function CameraRig({
     if (!c) return
     const eye = eyeRef.current
     const d = latestLook.current
+    const cam = camera as THREE.PerspectiveCamera
     c.enablePan = mode === 'overview'
-    c.rotateSpeed = mode === 'site' ? -0.35 : 0.6
+    c.rotateSpeed = mode === 'site' ? -0.25 : 0.6
     c.maxPolarAngle = mode === 'overview' ? Math.PI / 2.05 : Math.PI
+    const az = Math.atan2(d[0], -d[2])
+    const el = Math.asin(Math.max(-1, Math.min(1, d[1])))
     if (mode === 'site') {
-      c.target.set(d[0] * 50, eye + d[1] * 50, d[2] * 50)
-      camera.position.set(-d[0] * 0.5, eye - d[1] * 0.5, -d[2] * 0.5)
-      c.minDistance = 0.1
-      c.maxDistance = 200
+      // look along the body's azimuth, a little above it, so the horizon sits in the lower part of the frame
+      const look = Math.min(Math.max(el, -0.05), 0.1) + (3 * Math.PI) / 180
+      const dir = new THREE.Vector3(Math.cos(look) * Math.sin(az), Math.sin(look), -Math.cos(look) * Math.cos(az))
+      camera.position.set(0, eye, 0)
+      c.target.set(dir.x * 0.01, eye + dir.y * 0.01, dir.z * 0.01)
+      cam.fov = EYE_FOV
+      c.minDistance = 0.005
+      c.maxDistance = 0.02
+      c.enableZoom = false
     } else {
-      camera.position.set(-d[0] * 6000, eye + 1800, -d[2] * 6000)
+      camera.position.set(-Math.sin(az) * 6000, eye + 1800, Math.cos(az) * 6000)
       c.target.set(0, eye, 0)
+      cam.fov = ABOVE_FOV
       c.minDistance = 500
       c.maxDistance = 20_000
+      c.enableZoom = true
     }
+    cam.updateProjectionMatrix()
+    c.update()
   }, [camera, mode, resetKey])
-
   return null
 }
 
-export function Scene({
+export interface OverlayRefs {
+  ladder: React.RefObject<HTMLDivElement | null>
+  az: React.RefObject<HTMLDivElement | null>
+}
+
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+const azName = (a: number) => `${DIRS[Math.round((((a % 360) + 360) % 360) / 45) % 8]} ${Math.round(((a % 360) + 360) % 360)}°`
+
+/** Writes the elevation ladder and the azimuths at the frame edges into DOM overlays, every frame, without React renders. */
+function OverlayWriter({ refs, show }: { refs: OverlayRefs; show: boolean }) {
+  const v = useMemo(() => new THREE.Vector3(), [])
+  const fwd = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }) => {
+    const lad = refs.ladder.current
+    const azr = refs.az.current
+    if (!lad || !azr) return
+    lad.style.display = show ? 'block' : 'none'
+    azr.style.display = show ? 'block' : 'none'
+    if (!show) return
+    camera.getWorldDirection(fwd)
+    const yaw = Math.atan2(fwd.x, -fwd.z)
+    const spans = lad.children
+    for (let k = 0; k < spans.length; k++) {
+      const e = (Number((spans[k] as HTMLElement).dataset.el) * Math.PI) / 180
+      v.set(Math.cos(e) * Math.sin(yaw), Math.sin(e), -Math.cos(e) * Math.cos(yaw)).multiplyScalar(1000)
+      v.add(camera.position)
+      v.project(camera)
+      const y = ((1 - v.y) / 2) * size.height
+      const el = spans[k] as HTMLElement
+      el.style.top = `${y}px`
+      el.style.visibility = v.z < 1 && y > 8 && y < size.height - 30 ? 'visible' : 'hidden'
+    }
+    const cam = camera as THREE.PerspectiveCamera
+    const hfov = 2 * Math.atan(Math.tan((cam.fov * Math.PI) / 360) * cam.aspect)
+    const yawDeg = (yaw * 180) / Math.PI
+    const half = (hfov * 180) / Math.PI / 2
+    const labels = azr.children
+    const vals = [yawDeg - half, yawDeg, yawDeg + half]
+    for (let k = 0; k < labels.length && k < 3; k++) (labels[k] as HTMLElement).textContent = azName(vals[k])
+  })
+  return null
+}
+
+export function Scene(props: Parameters<typeof SceneInner>[0]) {
+  setLabelScale(props.mode === 'site' ? EYE_FOV : ABOVE_FOV)
+  return <SceneInner {...props} />
+}
+
+function SceneInner({
   terrain,
   horizon,
   sky,
@@ -321,7 +400,9 @@ export function Scene({
   exaggeration,
   lookDir,
   resetKey,
+  overlay,
 }: {
+  overlay?: OverlayRefs
   resetKey: string
   terrain: Terrain
   horizon: Horizon | null
@@ -338,19 +419,20 @@ export function Scene({
     <Canvas
       shadows="percentage"
       dpr={DPR}
-      camera={{ fov: 55, near: 0.3, far: 250_000 }}
+      camera={{ fov: EYE_FOV, near: 0.3, far: 250_000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
     >
-      <ambientLight intensity={0.22} color="#9fb7ff" />
-      <hemisphereLight args={['#1a2238', '#000000', 0.12]} />
+      {/* weak fill light so the shape of the ground reads; shadows still come only from the real Sun direction */}
+      <ambientLight intensity={0.55} color="#c8ced6" />
+      <hemisphereLight args={['#9aa3ad', '#2a2e33', 0.45]} />
       <SunLight sky={sky} eyeY={eyeY} />
       <group scale={[1, exaggeration, 1]}>
         <TerrainMesh terrain={terrain} />
       </group>
-      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={(edgeHeight(terrain) - 5) * exaggeration} />}
+      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} />}
       <SkyDome sky={sky} enlarge={enlarge} />
-      <Compass eyeY={eyeY} />
+      {mode === 'overview' && <Compass eyeY={eyeY} />}
       {mode === 'overview' && (
         <mesh position={[0, eyeY + 140, 0]}>
           <cylinderGeometry args={[25, 25, 300, 12]} />
@@ -358,6 +440,7 @@ export function Scene({
         </mesh>
       )}
       <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} resetKey={resetKey} />
+      {overlay && <OverlayWriter refs={overlay} show={mode === 'site'} />}
     </Canvas>
     </div>
   )

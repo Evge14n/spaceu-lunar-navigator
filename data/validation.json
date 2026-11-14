@@ -1,0 +1,502 @@
+{
+ "details": "docs/VALIDATION.md",
+ "period": {
+  "start": "2026-11-14T00:00:00Z",
+  "end": "2027-11-14T00:00:00Z",
+  "step_h": 1.0
+ },
+ "horizons": {
+  "title": "Sun and Earth directions against JPL Horizons",
+  "what": "Azimuth and elevation of the Sun and the Earth for five points on the Moon over the year, compared with NASA JPL Horizons (observer on the lunar surface, airless apparent positions). samples: compared positions = moments_per_point x points x two bodies.",
+  "source": "JPL Horizons API, observer coord@301, quantities 4 and 20, ephemeris DE441",
+  "retrieved": "2026-11-14T12:53:42Z",
+  "points": 5,
+  "moments_per_point": 121,
+  "samples": 1210,
+  "target_deg": 0.01,
+  "sun": {
+   "max_angle_deg": 1.4e-06,
+   "max_range_km": 0.18
+  },
+  "earth": {
+   "max_angle_deg": 2.69e-05,
+   "max_range_km": 0.18
+  },
+  "max_angle_deg": 2.69e-05,
+  "passed": true,
+  "max_diff_deg": 2.69e-05,
+  "sun_max_diff_deg": 1.4e-06
+ },
+ "terrain_orientation": {
+  "title": "The elevation model is read the right way round",
+  "what": "The label of the polar elevation model does not say which way its lines and samples run. NASA's 5 m site models are georeferenced independently, so the polar model agrees with them only in the right orientation. rms_m: smallest and largest RMS height difference over the site models as we read it; other_rms_m: the same over the seven other orientations.",
+  "site_models": 10,
+  "rms_m": [
+   1.2,
+   2.3
+  ],
+  "other_rms_m": [
+   425,
+   9345
+  ],
+  "rows": [
+   {
+    "id": "site01",
+    "model": "Site01",
+    "rms_m": 1.3,
+    "other_min_rms_m": 425,
+    "other_max_rms_m": 2249
+   },
+   {
+    "id": "site04",
+    "model": "Site04",
+    "rms_m": 2.3,
+    "other_min_rms_m": 814,
+    "other_max_rms_m": 2500
+   },
+   {
+    "id": "site06",
+    "model": "Site06",
+    "rms_m": 2.0,
+    "other_min_rms_m": 4846,
+    "other_max_rms_m": 9345
+   },
+   {
+    "id": "site07",
+    "model": "Site07",
+    "rms_m": 1.3,
+    "other_min_rms_m": 917,
+    "other_max_rms_m": 2698
+   },
+   {
+    "id": "site11",
+    "model": "Site11",
+    "rms_m": 1.3,
+    "other_min_rms_m": 1282,
+    "other_max_rms_m": 2555
+   },
+   {
+    "id": "site20",
+    "model": "Site20",
+    "rms_m": 1.5,
+    "other_min_rms_m": 3389,
+    "other_max_rms_m": 8882
+   },
+   {
+    "id": "site23",
+    "model": "Site23",
+    "rms_m": 1.7,
+    "other_min_rms_m": 747,
+    "other_max_rms_m": 6312
+   },
+   {
+    "id": "haworth",
+    "model": "Haworth",
+    "rms_m": 1.4,
+    "other_min_rms_m": 1073,
+    "other_max_rms_m": 3191
+   },
+   {
+    "id": "shoemaker",
+    "model": "Shoemaker",
+    "rms_m": 1.2,
+    "other_min_rms_m": 699,
+    "other_max_rms_m": 2241
+   },
+   {
+    "id": "dm2",
+    "model": "DM2",
+    "rms_m": 2.3,
+    "other_min_rms_m": 623,
+    "other_max_rms_m": 4384
+   }
+  ]
+ },
+ "nasa_map": {
+  "title": "Illumination against the NASA LOLA map",
+  "what": "Share of time with any part of the solar disc visible, hourly over 18.6 years, recomputed with our code on the 60 m LOLA model at randomly drawn pixels of the NASA map AVGVISIB_85S_060M_201608.TIF (80 pixels per band of its value, inside 85 S).",
+  "pixels": 480,
+  "bias_pp": -0.51,
+  "mean_abs_pp": 1.08,
+  "median_abs_pp": 0.26,
+  "max_abs_pp": 28.3,
+  "correlation": 0.9957,
+  "within_pp": {
+   "0.5": 63.1,
+   "1": 74.2,
+   "2": 84.2,
+   "5": 94.6,
+   "10": 98.8,
+   "20": 99.8
+  },
+  "earth": {
+   "what": "The same pixels and method for the visibility of the Earth, map AVGVISIB_85S_060M_201608_EARTH.TIF.",
+   "pixels": 480,
+   "bias_pp": -0.06,
+   "mean_abs_pp": 0.71,
+   "median_abs_pp": 0.1,
+   "max_abs_pp": 23.57,
+   "correlation": 0.9958,
+   "within_pp": {
+    "0.5": 77.3,
+    "1": 85.8,
+    "2": 90.4,
+    "5": 97.5,
+    "10": 98.8,
+    "20": 99.6
+   }
+  }
+ },
+ "sites": {
+  "title": "The ten sites: our year against the NASA map",
+  "what": "ours_year_percent: lit share of 2026-11-14 .. 2027-11-14 for an instrument 2 m above the ground, 5 m site models. nasa_percent: the NASA map, 18.6 years, on the surface of a 60 m model. The two are not the same quantity; map_configuration_percent is our code in the configuration of the map, and the three effects lead from it to our number (rounded, so the sum can be 0.1 pp off).",
+  "rows": [
+   {
+    "id": "site01",
+    "name": "Connecting ridge",
+    "ours_year_percent": 89.9,
+    "nasa_percent": 88.4,
+    "difference_pp": 1.5,
+    "map_configuration_percent": 85.5,
+    "map_configuration_difference_pp": -2.9,
+    "height_effect_pp": 4.5,
+    "model_effect_pp": -0.6,
+    "year_effect_pp": 0.6,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 85.5 %, -2.9 pp from the map. An instrument 2 m above the ground: +4.5 pp. The 5 m model of the site instead of the 60 m one: -0.6 pp. This year instead of the 18.6-year mean: +0.6 pp."
+   },
+   {
+    "id": "site04",
+    "name": "Shackleton rim",
+    "ours_year_percent": 86.4,
+    "nasa_percent": 87.1,
+    "difference_pp": -0.7,
+    "map_configuration_percent": 85.5,
+    "map_configuration_difference_pp": -1.6,
+    "height_effect_pp": 3.8,
+    "model_effect_pp": -3.2,
+    "year_effect_pp": 0.3,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 85.5 %, -1.6 pp from the map. An instrument 2 m above the ground: +3.8 pp. The 5 m model of the site instead of the 60 m one: -3.2 pp. This year instead of the 18.6-year mean: +0.3 pp."
+   },
+   {
+    "id": "site06",
+    "name": "Nobile rim 1",
+    "ours_year_percent": 88.4,
+    "nasa_percent": 83.1,
+    "difference_pp": 5.3,
+    "map_configuration_percent": 80.5,
+    "map_configuration_difference_pp": -2.6,
+    "height_effect_pp": 7.3,
+    "model_effect_pp": 0.2,
+    "year_effect_pp": 0.4,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 80.5 %, -2.6 pp from the map. An instrument 2 m above the ground: +7.3 pp. The 5 m model of the site instead of the 60 m one: +0.2 pp. This year instead of the 18.6-year mean: +0.4 pp."
+   },
+   {
+    "id": "site07",
+    "name": "Peak near Shackleton",
+    "ours_year_percent": 88.1,
+    "nasa_percent": 86.0,
+    "difference_pp": 2.1,
+    "map_configuration_percent": 83.6,
+    "map_configuration_difference_pp": -2.4,
+    "height_effect_pp": 4.6,
+    "model_effect_pp": -0.4,
+    "year_effect_pp": 0.3,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 83.6 %, -2.4 pp from the map. An instrument 2 m above the ground: +4.6 pp. The 5 m model of the site instead of the 60 m one: -0.4 pp. This year instead of the 18.6-year mean: +0.3 pp."
+   },
+   {
+    "id": "site11",
+    "name": "de Gerlache rim",
+    "ours_year_percent": 84.9,
+    "nasa_percent": 82.7,
+    "difference_pp": 2.2,
+    "map_configuration_percent": 82.3,
+    "map_configuration_difference_pp": -0.4,
+    "height_effect_pp": 2.2,
+    "model_effect_pp": -0.5,
+    "year_effect_pp": 0.9,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 82.3 %, -0.4 pp from the map. An instrument 2 m above the ground: +2.2 pp. The 5 m model of the site instead of the 60 m one: -0.5 pp. This year instead of the 18.6-year mean: +0.9 pp."
+   },
+   {
+    "id": "site20",
+    "name": "Leibnitz beta plateau",
+    "ours_year_percent": 79.2,
+    "nasa_percent": 74.7,
+    "difference_pp": 4.5,
+    "map_configuration_percent": 68.4,
+    "map_configuration_difference_pp": -6.3,
+    "height_effect_pp": 11.1,
+    "model_effect_pp": -1.8,
+    "year_effect_pp": 1.5,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 68.4 %, -6.3 pp from the map. An instrument 2 m above the ground: +11.1 pp. The 5 m model of the site instead of the 60 m one: -1.8 pp. This year instead of the 18.6-year mean: +1.5 pp."
+   },
+   {
+    "id": "site23",
+    "name": "Malapert massif",
+    "ours_year_percent": 84.9,
+    "nasa_percent": 81.9,
+    "difference_pp": 3.0,
+    "map_configuration_percent": 81.3,
+    "map_configuration_difference_pp": -0.6,
+    "height_effect_pp": 2.7,
+    "model_effect_pp": -0.7,
+    "year_effect_pp": 1.6,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 81.3 %, -0.6 pp from the map. An instrument 2 m above the ground: +2.7 pp. The 5 m model of the site instead of the 60 m one: -0.7 pp. This year instead of the 18.6-year mean: +1.6 pp."
+   },
+   {
+    "id": "haworth",
+    "name": "Haworth",
+    "ours_year_percent": 76.4,
+    "nasa_percent": 70.5,
+    "difference_pp": 5.9,
+    "map_configuration_percent": 69.6,
+    "map_configuration_difference_pp": -0.9,
+    "height_effect_pp": 5.8,
+    "model_effect_pp": -0.3,
+    "year_effect_pp": 1.4,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 69.6 %, -0.9 pp from the map. An instrument 2 m above the ground: +5.8 pp. The 5 m model of the site instead of the 60 m one: -0.3 pp. This year instead of the 18.6-year mean: +1.4 pp."
+   },
+   {
+    "id": "shoemaker",
+    "name": "Shoemaker",
+    "ours_year_percent": 61.2,
+    "nasa_percent": 59.2,
+    "difference_pp": 2.0,
+    "map_configuration_percent": 59.1,
+    "map_configuration_difference_pp": -0.1,
+    "height_effect_pp": 1.0,
+    "model_effect_pp": 0.0,
+    "year_effect_pp": 1.2,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 59.1 %, -0.1 pp from the map. An instrument 2 m above the ground: +1.0 pp. The 5 m model of the site instead of the 60 m one: +0.0 pp. This year instead of the 18.6-year mean: +1.2 pp."
+   },
+   {
+    "id": "dm2",
+    "name": "Nobile rim 2",
+    "ours_year_percent": 55.5,
+    "nasa_percent": 53.9,
+    "difference_pp": 1.6,
+    "map_configuration_percent": 49.8,
+    "map_configuration_difference_pp": -4.1,
+    "height_effect_pp": 4.1,
+    "model_effect_pp": 0.0,
+    "year_effect_pp": 1.6,
+    "explanation": "Computed the way the map was (60 m model, on the surface, 18.6 years) this point gets 49.8 %, -4.1 pp from the map. An instrument 2 m above the ground: +4.1 pp. The 5 m model of the site instead of the 60 m one: +0.0 pp. This year instead of the 18.6-year mean: +1.6 pp."
+   }
+  ],
+  "mean_abs_difference_pp": 2.88,
+  "max_abs_difference_pp": 5.9,
+  "map_configuration_mean_abs_difference_pp": 2.21,
+  "note": "The site points were chosen as the best-lit pixels of the map, and a maximum picked from a noisy map is on average higher than a recomputation: in the configuration of the map our numbers are 2.2 pp lower on average."
+ },
+ "psr": {
+  "title": "Permanently shadowed regions stay dark",
+  "what": "Pixels flagged as permanently shadowed in the NASA map LPSR_85S_060M_201608.TIF must never see the Sun in our computation (60 m model, on the surface, 18.6 years).",
+  "pixels": 150,
+  "never_lit": 149,
+  "interior_pixels": 92,
+  "interior_never_lit": 92,
+  "interior_definition": "every pixel within 600 m is also flagged",
+  "product_never_lit": 148,
+  "exceptions": [
+   {
+    "row": 2970,
+    "col": 4539,
+    "interior": false,
+    "map_config": 29.473,
+    "product": 3.013
+   },
+   {
+    "row": 4202,
+    "col": 4286,
+    "interior": false,
+    "map_config": 0.0,
+    "product": 0.023
+   }
+  ],
+  "note": "Two pixels of 150 are not dark, both on the edge of a shadowed patch. One patch is only four pixels, on a plain that is about 30 % lit, and the published 60 m model shows no hollow there (heights within 7 m across 300 m): what shades it on the map is not in the model. The other is on the rim of a shadowed area of about 1 km2, on a slope; on the surface it stays dark, and an instrument 2 m above the ground sees the Sun for two hours a year."
+ },
+ "browser": {
+  "title": "Custom points computed in the browser",
+  "what": "Any point is computed on the page from a 240 m elevation model. Compared with the full computation (20 m model) of the same year at the pixels of the map test.",
+  "pixels": 480,
+  "lit_percent": {
+   "n": 480,
+   "bias": 1.15,
+   "mae": 2.14,
+   "rmse": 5.19,
+   "median_abs": 0.41,
+   "p90_abs": 5.67,
+   "max_abs": 43.02
+  },
+  "lit_percent_within_pp": {
+   "1": 61.9,
+   "2": 74.8,
+   "5": 89.2,
+   "10": 94.6,
+   "20": 98.1
+  },
+  "longest_dark_h": {
+   "n": 480,
+   "bias": -126.02,
+   "mae": 134.08,
+   "rmse": 602.38,
+   "median_abs": 1.7,
+   "p90_abs": 110.02,
+   "max_abs": 5710.4
+  },
+  "longest_dark_within_h": {
+   "6": 63.5,
+   "24": 80.0,
+   "72": 88.3,
+   "168": 91.9
+  },
+  "earth_visible_percent": {
+   "n": 480,
+   "bias": 1.2,
+   "mae": 1.59,
+   "rmse": 4.85,
+   "median_abs": 0.06,
+   "p90_abs": 3.86,
+   "max_abs": 43.4
+  },
+  "earth_visible_within_pp": {
+   "1": 76.9,
+   "2": 84.2,
+   "5": 91.7,
+   "10": 94.8,
+   "20": 98.5
+  },
+  "lit_percent_by_band_of_full": [
+   {
+    "band": "0",
+    "n": 78,
+    "bias": 0.12,
+    "mae": 0.12,
+    "rmse": 0.72,
+    "median_abs": 0.0,
+    "p90_abs": 0.0,
+    "max_abs": 5.9
+   },
+   {
+    "band": "0-25",
+    "n": 158,
+    "bias": 1.78,
+    "mae": 1.79,
+    "rmse": 4.55,
+    "median_abs": 0.3,
+    "p90_abs": 4.89,
+    "max_abs": 27.11
+   },
+   {
+    "band": "25-50",
+    "n": 92,
+    "bias": 1.87,
+    "mae": 1.89,
+    "rmse": 4.56,
+    "median_abs": 0.4,
+    "p90_abs": 4.1,
+    "max_abs": 28.55
+   },
+   {
+    "band": "50-70",
+    "n": 78,
+    "bias": 2.82,
+    "mae": 3.26,
+    "rmse": 6.29,
+    "median_abs": 1.02,
+    "p90_abs": 11.55,
+    "max_abs": 23.73
+   },
+   {
+    "band": "70-100",
+    "n": 74,
+    "bias": -1.75,
+    "mae": 4.13,
+    "rmse": 7.89,
+    "median_abs": 2.51,
+    "p90_abs": 6.89,
+    "max_abs": 43.02
+   }
+  ],
+  "longest_dark_h_by_band_of_full": [
+   {
+    "band": "0",
+    "median_full_h": 8760.0,
+    "n": 78,
+    "bias": -127.5,
+    "mae": 130.79,
+    "rmse": 700.26,
+    "median_abs": 0.0,
+    "p90_abs": 0.0,
+    "max_abs": 4563.0,
+    "within_24h": 94.9
+   },
+   {
+    "band": "0-25",
+    "median_full_h": 2729.0,
+    "n": 158,
+    "bias": -280.99,
+    "mae": 281.27,
+    "rmse": 905.41,
+    "median_abs": 1.45,
+    "p90_abs": 811.73,
+    "max_abs": 5710.4,
+    "within_24h": 81.0
+   },
+   {
+    "band": "25-50",
+    "median_full_h": 518.9,
+    "n": 92,
+    "bias": -17.68,
+    "mae": 18.03,
+    "rmse": 65.57,
+    "median_abs": 2.9,
+    "p90_abs": 31.17,
+    "max_abs": 562.1,
+    "within_24h": 83.7
+   },
+   {
+    "band": "50-70",
+    "median_full_h": 384.0,
+    "n": 78,
+    "bias": -59.03,
+    "mae": 61.53,
+    "rmse": 263.41,
+    "median_abs": 5.45,
+    "p90_abs": 115.51,
+    "max_abs": 2242.1,
+    "within_24h": 71.8
+   },
+   {
+    "band": "70-100",
+    "median_full_h": 220.4,
+    "n": 74,
+    "bias": 1.15,
+    "mae": 44.03,
+    "rmse": 89.75,
+    "median_abs": 13.45,
+    "p90_abs": 135.83,
+    "max_abs": 352.8,
+    "within_24h": 66.2
+   }
+  ],
+  "listed_sites_lit_percent": {
+   "n": 10,
+   "bias": -5.26,
+   "mae": 6.2,
+   "rmse": 12.8,
+   "median_abs": 1.96,
+   "p90_abs": 10.83,
+   "max_abs": 38.75
+  },
+  "caption": "Estimate from a 240 m terrain model. Against the full computation the lit share of the year differs by 0.4 pp for a typical point and by less than 5.7 pp for nine points in ten; on well-lit ridges (above 70 %) it is typically 2.5 pp, and a sharp summit can be off by tens of pp. The longest night is within a day for 80 % of points."
+ },
+ "limits": [
+  "Light is geometric: no light scattered or reflected from lit slopes, the solar disc is uniformly bright.",
+  "The elevation models have errors of their own: metres in height, and a summit narrower than a pixel (5 m at the listed sites, 20 m elsewhere near the pole) is not in the model.",
+  "Terrain farther than 150 km is ignored; counting it to 400 km changes the yearly percentage by -0.04 pp on average and by 0.9 pp at most.",
+  "The numbers are for an instrument 2 m above the ground. On the ground itself a point of a fine model is lit far less often; a mast adds light (see the mast table).",
+  "One year (2026-11-14 .. 2027-11-14) is not the 18.6-year mean of the NASA maps: over the same pixels it differs by +0.45 pp on average.",
+  "Percentages are shares of hourly samples: a sunrise is known to the hour in the browser estimate and to 30 seconds in the precomputed files.",
+  "A custom point is estimated in the browser from a 240 m model: half of the points are within 0.4 pp of the full computation and nine in ten within 5.7 pp; on well-lit ridges (above 70 %) half are within 2.5 pp, and a sharp summit can be off by tens of pp (largest difference measured: 43 pp). The listed sites use the full computation."
+ ]
+}

@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
-import { formatHours, periodPresets, summarize, timesMs, useSites, useTimelines, type Site, type Summary } from '../api'
-import { clampPeriod, PeriodMovedNote, PeriodPicker, siteLabel } from '../components/Controls'
+import { formatHours, periodPresets, summarize, timesMs, useHeights, useSites, useTimelines, type Site, type Summary } from '../api'
+import { clampPeriod, PeriodMovedNote, PeriodPicker } from '../components/Controls'
 import { Notice } from '../components/Notice'
+import { PageHead } from '../components/PageHead'
+import { dateUtc, siteNo } from '../format'
 import { useAppState } from '../state'
 
 interface Metric {
@@ -13,18 +15,27 @@ interface Metric {
   better: 'high' | 'low' | 'none'
 }
 
-const pct = (v: number | null) => (v === null ? 'n/a' : `${v} %`)
+const pct = (v: number | null) => (v === null ? 'n/a' : `${v.toFixed(1)} %`)
 
 const METRICS: Metric[] = [
-  { key: 'lit', label: 'Sunlit', hint: 'Share of the period with any part of the Sun above the terrain', get: (s) => s.sun.lit_percent, fmt: pct, better: 'high' },
-  { key: 'dark', label: 'Longest darkness', hint: 'Batteries must last this long', get: (s) => s.sun.longest_dark_h, fmt: formatHours, better: 'low' },
-  { key: 'litrun', label: 'Longest sunlit stretch', hint: 'Longest continuous light', get: (s) => s.sun.longest_lit_h, fmt: formatHours, better: 'high' },
-  { key: 'maxel', label: 'Highest Sun', hint: 'Higher Sun, more power on a tilted panel', get: (s) => s.sun.max_el, fmt: (v) => (v === null ? 'n/a' : `${v.toFixed(2)}°`), better: 'high' },
-  { key: 'sunset', label: 'First sunset after start', hint: 'Hours from the start of the period', get: (s) => s.sun.hours_to_sunset ?? (s.sun.lit_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never up' : formatHours(v)), better: 'high' },
-  { key: 'earth', label: 'Earth visible', hint: 'Direct-to-Earth radio possible', get: (s) => s.earth.visible_percent, fmt: pct, better: 'high' },
-  { key: 'windows', label: 'Earth windows', hint: 'Separate periods with Earth in view', get: (s) => s.earth.windows.length, fmt: (v) => String(v ?? 0), better: 'none' },
-  { key: 'earthset', label: 'First Earthset after start', hint: 'Hours from the start of the period', get: (s) => s.earth.hours_to_earthset ?? (s.earth.visible_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never in view' : formatHours(v)), better: 'high' },
+  { key: 'lit', label: 'Sunlit share of the period', hint: 'Any part of the Sun above the terrain', get: (s) => s.sun.lit_percent, fmt: pct, better: 'high' },
+  { key: 'dark', label: 'Longest darkness to survive', hint: 'Batteries must last this long', get: (s) => s.sun.longest_dark_h, fmt: formatHours, better: 'low' },
+  { key: 'litrun', label: 'Longest continuous light', hint: 'Unbroken sunlight', get: (s) => s.sun.longest_lit_h, fmt: formatHours, better: 'high' },
+  { key: 'maxel', label: 'Highest Sun', hint: 'More power on a tilted panel', get: (s) => s.sun.max_el, fmt: (v) => (v === null ? 'n/a' : `${v.toFixed(2)}°`), better: 'high' },
+  { key: 'irr', label: 'Sunlight on a panel facing the Sun', hint: 'Mean over the period, W/m²', get: (s) => s.sun.mean_irradiance_w_m2 ?? null, fmt: (v) => (v === null ? 'n/a' : `${Math.round(v)} W/m²`), better: 'high' },
+  { key: 'earth', label: 'Earth in view, direct link', hint: 'Radio without a relay satellite', get: (s) => s.earth.visible_percent, fmt: pct, better: 'high' },
+  { key: 'sunset', label: 'Hours to the first sunset', hint: 'Counted from the start of the period', get: (s) => s.sun.hours_to_sunset ?? (s.sun.lit_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never up' : formatHours(v)), better: 'high' },
+  { key: 'earthset', label: 'Hours to the first Earthset', hint: 'Counted from the start of the period', get: (s) => s.earth.hours_to_earthset ?? (s.earth.visible_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never in view' : formatHours(v)), better: 'high' },
 ]
+
+const WORDS = ['No', 'One', 'Two', 'Three', 'Four']
+function periodWords(f: number, e: number) {
+  const d = Math.round((e - f) / 86_400_000)
+  if (d >= 360 && d <= 370) return 'one year'
+  if (d === 14) return 'two weeks'
+  if (d >= 29 && d <= 31) return `${d} days`
+  return `${d} days`
+}
 
 function best(values: (number | null)[], better: Metric['better']): number | null {
   if (better === 'none') return null
@@ -40,6 +51,7 @@ export default function ComparePage() {
   const list = sites.data ?? []
   const chosen = compareIds.filter((id) => list.some((s) => s.id === id))
   const tls = useTimelines(chosen)
+  const heights = useHeights()
 
   const result = useMemo(() => {
     if (!tls.data || tls.data.length !== chosen.length || !tls.data.length) return null
@@ -57,80 +69,134 @@ export default function ComparePage() {
     else if (chosen.length < 4) setCompare([...chosen, id])
   }
 
+  const f = result?.f ?? from
+  const e = result?.e ?? to
   return (
     <div className="page compare">
-      <div className="page-head">
-        <h1>Compare sites</h1>
-        <p className="lede">Choose 2 to 4 sites and a period. The best value in each row is marked.</p>
-      </div>
+      <PageHead
+        stamp={`Sheet 02 / ${chosen.length} of 4 sites / ${dateUtc(f)} to ${dateUtc(e)}`}
+        title="Compare sites and dates"
+        lede="Choose two to four sites and a period. The best value in each row is marked. Every number is computed in your browser from the hourly timelines."
+      />
 
       <div className="toolbar">
         <fieldset className="chips">
-          <legend>Sites ({chosen.length} of 4)</legend>
+          <legend>Sites, {chosen.length} of 4 chosen</legend>
           {list.map((s) => {
             const on = chosen.includes(s.id)
             return (
               <label key={s.id} className={`chip${on ? ' on' : ''}`}>
                 <input type="checkbox" checked={on} disabled={!on && chosen.length >= 4} onChange={() => toggle(s.id)} />
-                {siteLabel(s)}
+                <span className="no">{siteNo(list, s.id)}</span>
+                {s.name}
               </label>
             )
           })}
         </fieldset>
-        <PeriodPicker
-          from={result?.f ?? from}
-          to={result?.e ?? to}
-          min={result?.ms[0]}
-          max={result?.ms[result.ms.length - 1]}
-          onChange={setPeriod}
-          presets={result?.presets}
-        />
+        <PeriodPicker from={f} to={e} min={result?.ms[0]} max={result?.ms[result.ms.length - 1]} onChange={setPeriod} presets={result?.presets} />
       </div>
 
       <PeriodMovedNote moved={!!result?.moved} />
       {chosen.length < 2 && <Notice title="Pick at least two sites to compare" />}
-      {tls.error && <Notice tone="error" title="Some site data is missing">{tls.error.message}</Notice>}
+      {tls.error && (
+        <Notice tone="error" title="Some site data is missing">
+          {tls.error.message}
+        </Notice>
+      )}
       {tls.loading && chosen.length >= 2 && <div className="skeleton table-skeleton" aria-busy="true" />}
 
       {result && chosen.length >= 2 && !tls.loading && (
-        <div className="table-wrap" role="region" aria-label="Comparison table" tabIndex={0}>
-          <table className="cmp">
-            <thead>
-              <tr>
-                <th scope="col">Metric</th>
-                {result.sums.map((s) => (
-                  <th scope="col" key={s.site.id}>{s.site.name}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {METRICS.map((m) => {
-                const vals = result.sums.map(m.get)
-                const b = best(vals, m.better)
-                return (
-                  <tr key={m.key}>
-                    <th scope="row">
-                      {m.label}
-                      <span className="hint">{m.hint}</span>
+        <section className="panel" aria-label="Comparison table">
+          <div className="panel-head">
+            <h2>
+              {WORDS[chosen.length] ?? chosen.length} sites, {periodWords(result.f, result.e)}
+            </h2>
+            <span className="label">Best value in each row is marked</span>
+          </div>
+          <div className="table-wrap" role="region" aria-label="Comparison table, scrolls sideways" tabIndex={0}>
+            <table className="cmp">
+              <thead>
+                <tr>
+                  <th scope="col">Metric</th>
+                  {result.sums.map((s) => (
+                    <th scope="col" key={s.site.id}>
+                      {siteNo(list, s.site.id)} {s.site.name}
                     </th>
-                    {vals.map((v, i) => {
-                      const isBest = b !== null && v === b
-                      return (
-                        <td key={i} className={isBest ? 'best' : undefined}>
-                          {m.fmt(v)}
-                          {isBest && <span className="best-tag">best</span>}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {METRICS.map((m) => {
+                  const vals = result.sums.map(m.get)
+                  const b = best(vals, m.better)
+                  return (
+                    <tr key={m.key}>
+                      <th scope="row">
+                        {m.label}
+                        <span className="hint">{m.hint}</span>
+                      </th>
+                      {vals.map((v, i) => {
+                        const isBest = b !== null && v === b
+                        return (
+                          <td key={i} className={isBest ? 'best' : undefined}>
+                            <span className="num">{m.fmt(v)}</span>
+                            {isBest && <span className="best-tag">BEST</span>}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
-      <p className="source">
-        Computed in the browser from hourly timelines, the same rules as the API: the Sun counts while any part of its disc is above the terrain; Earth counts while its upper limb is.
+      {heights.data && chosen.length >= 1 && (
+        <section className="panel" aria-label="What a mast gives">
+          <div className="panel-head">
+            <h2>What a mast gives</h2>
+            <span className="label">Whole year / instrument 1, 2, 5 and 10 m above the ground</span>
+          </div>
+          <div className="table-wrap" role="region" aria-label="Mast height table, scrolls sideways" tabIndex={0}>
+            <table className="cmp">
+              <thead>
+                <tr>
+                  <th scope="col">Site</th>
+                  {heights.data[0].heights.map((h) => (
+                    <th scope="col" key={h.height_m}>
+                      {h.height_m} m up
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {chosen.map((id) => {
+                  const row = heights.data!.find((r) => r.site.id === id)
+                  if (!row) return null
+                  return (
+                    <tr key={id}>
+                      <th scope="row">
+                        {siteNo(list, id)} {row.site.name}
+                        <span className="hint">Sunlit share / longest darkness</span>
+                      </th>
+                      {row.heights.map((h) => (
+                        <td key={h.height_m}>
+                          <span className="num">{h.sun.lit_percent.toFixed(1)} %</span>
+                          <span className="hint">{formatHours(h.sun.longest_dark_h)} dark</span>
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      <p className="small muted">
+        Sunlight on a panel: 1361 W/m² times the visible part of the solar disc, averaged over the period (within about 3 %, the distance to the Sun is not counted).
+        Same rules as the API: the Sun counts while any part of its disc is above the terrain; the Earth counts while its upper limb is. Instrument height 2 m, step 1 h.
       </p>
     </div>
   )

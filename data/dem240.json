@@ -1,0 +1,28 @@
+{
+ "file": "dem240.bin",
+ "dtype": "int16, little-endian",
+ "n": 1772,
+ "width": 1772,
+ "height": 1772,
+ "pixel_m": 240.0,
+ "x_km": [
+  -212.64,
+  212.64
+ ],
+ "y_km": [
+  -212.64,
+  212.64
+ ],
+ "first_pixel_centre_m": [
+  -212520.0,
+  212520.0
+ ],
+ "lat_limit": -83.0,
+ "unit": "metres above the sphere of 1737.4 km",
+ "min_m": -5692,
+ "max_m": 7025,
+ "order": "row by row; row 0 is y max, column 0 is x min: the pixel grid of illumination.png",
+ "projection": "south polar stereographic, sphere 1737.4 km, true scale at the pole: rho = 2R*tan((90+lat)/2), x = rho*sin(lon) (towards 90 E), y = rho*cos(lon) (towards 0 E); image row 0 is y max, column 0 is x min",
+ "source": "NASA LOLA elevation model LDEM_75S_120M (PDS LOLA GDR), 120 m pixels averaged to 240 m",
+ "algorithm": "docs/BROWSER_COMPUTE.md"
+}
