@@ -115,9 +115,9 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
   <h2>Checked against NASA sources</h2>
   <div class="cols" style="grid-template-columns: 1fr 1.2fr">
     <div class="panel" style="display:flex;flex-direction:column">
-      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sun and Earth vs JPL Horizons, 1 210 moments</span><br><span class="num" style="font-size:88px">0.00003°</span><p>largest difference, target was 0.01°</p></div>
-      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sunlit share vs NASA 18.6-year map, 10 sites</span><br><span class="num" style="font-size:88px">+2.7 points</span><p>on average (range −0.7 to +5.9): ours is 2 m up, theirs at the surface</p></div>
-      <div style="padding:28px 32px"><span class="lab">Website vs backend</span><p>The browser's own summary matches the server's for all 10 sites (automatic test).</p></div>
+      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sun and Earth vs JPL Horizons, 1 210 positions</span><br><span class="num" style="font-size:88px">0.00003°</span><p>largest difference, target was 0.01°</p></div>
+      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sunlit share vs NASA illumination map, 480 pixels</span><br><span class="num" style="font-size:88px">0.26 pp</span><p>median difference, correlation 0.996 (computed the way the map was)</p></div>
+      <div style="padding:28px 32px"><span class="lab">Shadowed craters / website vs backend</span><p>149 of 150 permanently shadowed pixels never lit; the browser's own numbers match the server's for all 10 sites (automatic test).</p></div>
     </div>
     <img class="shot" src="img/accuracy.png" alt="Sunlit share site by site, ours against NASA's map" style="height:700px">
   </div>
@@ -157,7 +157,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     </div>
     <div class="inv"><span class="lab" style="color:#c9ced4">Next</span>
       <ul style="margin-top:16px;color:#dfe3e8">
-        <li style="color:#dfe3e8">Any point on the map computed in the browser</li>
+        <li style="color:#dfe3e8">Done: any point on the map computed in the browser (240 m terrain)</li>
         <li style="color:#dfe3e8">Relay satellite windows when Earth is hidden</li>
         <li style="color:#dfe3e8">More sites from published Artemis regions</li>
       </ul>
