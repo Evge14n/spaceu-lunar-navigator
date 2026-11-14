@@ -25,3 +25,13 @@ export const siteNo = (sites: Site[] | null | undefined, id: string | null) => {
 
 export const latLon = (lat: number, lon: number) =>
   `${Math.abs(lat).toFixed(4)}° ${lat <= 0 ? 'S' : 'N'} / ${(((lon % 360) + 360) % 360).toFixed(4)}° E`
+
+/** "Site 01 Connecting ridge" or "Your point 89.4500° S / 222.7000° E". */
+export const siteTitle = (sites: Site[] | null | undefined, id: string | null) => {
+  if (id?.startsWith('custom:')) {
+    const [la, lo] = id.slice(7).split(',').map(Number)
+    return `Your point ${latLon(la, lo)}`
+  }
+  const s = sites?.find((x) => x.id === id)
+  return `Site ${siteNo(sites, id)} ${s?.name ?? ''}`
+}

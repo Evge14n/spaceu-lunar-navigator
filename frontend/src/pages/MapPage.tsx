@@ -14,6 +14,7 @@ import {
   useAsync,
   useSites,
   useTimeline,
+  useValidation,
   useYearSummaries,
   visibleFlags,
   type Site,
@@ -142,6 +143,8 @@ export default function MapPage() {
   const local = useAsync(canComputeLocally, [])
   const canCompute = !!local.data || !!API_URL
   const customTl = useTimeline(custom ? siteId : null)
+  const val = useValidation()
+  const browserCaption = (val.data?.browser as { caption?: string } | undefined)?.caption
 
   const list = useMemo(() => (sites.data ?? []).filter((s) => s.lat !== null && s.lon !== null), [sites.data])
   const view: View = useMemo(() => {
@@ -357,7 +360,7 @@ export default function MapPage() {
               })()}
               <p className="small muted">
                 {local.data
-                  ? 'Computed in your browser from the same ephemerides and a 240 m terrain grid. Listed sites use 5 m terrain.'
+                  ? (browserCaption ?? 'Computed in your browser from the same ephemerides and a 240 m terrain grid. Listed sites use 5 m terrain.')
                   : API_URL
                     ? 'Computed by the live API from the same ephemerides and LOLA terrain.'
                     : 'The point is marked on the map. The in-browser calculation (same ephemerides, 240 m terrain) switches on when its data files are published; listed sites use 5 m terrain.'}

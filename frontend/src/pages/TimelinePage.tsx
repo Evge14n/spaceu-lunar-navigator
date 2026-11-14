@@ -27,7 +27,7 @@ import {
 import { clampPeriod, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteNo } from '../format'
+import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteTitle } from '../format'
 import { useAppState } from '../state'
 
 /** One tick per day (or every few days for long periods), at 00:00 UTC. */
@@ -94,7 +94,7 @@ export default function TimelinePage() {
   const sites = useSites()
   const tl = useTimeline(siteId)
   const site = sites.data?.find((x) => x.id === siteId)
-  const stamp = `Sheet 03 / Site ${siteNo(sites.data, siteId)} ${site?.name ?? ''}${site && site.lat !== null && site.lon !== null ? ` / ${latLon(site.lat, site.lon)}` : ''}`
+  const stamp = `Sheet 03 / ${siteTitle(sites.data, siteId)}${site && site.lat !== null && site.lon !== null ? ` / ${latLon(site.lat, site.lon)}` : ''}`
 
   const view = useMemo(() => {
     if (!tl.data) return null

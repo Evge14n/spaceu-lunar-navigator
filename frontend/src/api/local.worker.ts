@@ -1,69 +1,49 @@
-// Web Worker: computes the horizon mask and the hourly timeline for any point, off the main thread.
-// Input: { lat, lon, heightM, base } ; output: { timeline, horizon } or { error }.
+// Web Worker: computes any point off the main thread with the backend's own browser port
+// (data/ephem/compute.mjs, checked against data/ephem/test_vectors.json by data/ephem/check.mjs;
+// algorithm in docs/BROWSER_COMPUTE.md). Here we only load the files and turn the result into the
+// same Timeline and Horizon shapes as the static files, so every sheet works for the point.
+// Input: { lat, lon, heightM, base } ; output: { timeline, horizon, ground, year } or { error }.
 
-import { horizonMask, localTimeline, maskToHorizon, demAt, stereo, type Dem, type Ephem } from './local'
+import { toLocalResult, type ComputeResult } from './localResult'
 
-interface EphemMeta {
-  file: string
-  start: string
-  step_h: number
-  n: number
-  dtype?: string
-}
-interface DemMeta {
-  file: string
-  n: number
-  x_km: [number, number]
-  y_km: [number, number]
-  dtype?: string
+interface Computer {
+  compute: (lat: number, lon: number, heightM?: number) => ComputeResult
+  timeOf: (i: number) => Date
+  count: number
 }
 
-let cache: Promise<{ eph: Ephem; dem: Dem }> | null = null
+let cache: Promise<Computer> | null = null
 
-async function load(base: string) {
-  const j = async <T,>(p: string) => {
+async function load(base: string): Promise<Computer> {
+  const j = async (p: string) => {
     const r = await fetch(base + p)
     if (!r.ok) throw new Error(`${p}: ${r.status}`)
-    return (await r.json()) as T
+    return r.json()
   }
   const bin = async (p: string) => {
     const r = await fetch(base + p)
     if (!r.ok) throw new Error(`${p}: ${r.status}`)
     return r.arrayBuffer()
   }
-  const em = await j<EphemMeta>('ephem/year.json')
-  const dm = await j<DemMeta>('dem240.json')
-  const [eb, db] = await Promise.all([bin(em.file), bin(dm.file)])
-  const f = new Float32Array(eb)
-  const n = em.n
-  const sun = new Float32Array(n * 3)
-  const earth = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    sun.set(f.subarray(6 * i, 6 * i + 3), 3 * i)
-    earth.set(f.subarray(6 * i + 3, 6 * i + 6), 3 * i)
+  const [yearMeta, demMeta] = await Promise.all([j('ephem/year.json'), j('dem240.json')])
+  const [yearBin, sunBin, demBin] = await Promise.all([bin(yearMeta.file), bin(yearMeta.sun_distance.file), bin(demMeta.file)])
+  const mod = (await import(/* @vite-ignore */ base + 'ephem/compute.mjs')) as {
+    createComputer: (...a: unknown[]) => Computer
   }
-  const t0 = Date.parse(em.start)
-  const times = Array.from({ length: n }, (_, i) => t0 + i * em.step_h * 3_600_000)
-  const h = dm.dtype === 'float32' ? new Float32Array(db) : new Int16Array(db)
-  const dem: Dem = { n: dm.n, x0: dm.x_km[0], x1: dm.x_km[1], y0: dm.y_km[0], y1: dm.y_km[1], h }
-  return { eph: { times, sun, earth }, dem }
+  return mod.createComputer(yearMeta, yearBin, sunBin, demMeta, demBin)
 }
 
 self.onmessage = async (ev: MessageEvent<{ lat: number; lon: number; heightM: number; base: string }>) => {
   const { lat, lon, heightM, base } = ev.data
   try {
     if (!cache) cache = load(base)
-    const { eph, dem } = await cache
-    const [x, y] = stereo(lat, lon)
-    const ground = demAt(dem, x, y)
-    if (!Number.isFinite(ground)) throw new Error('This point is outside the terrain grid')
-    const mask = horizonMask(dem, lat, lon, heightM)
-    const id = `custom:${lat},${lon}`
-    const timeline = localTimeline(eph, lat, lon, mask, heightM, ground)
-    timeline.site.id = id
-    ;(self as unknown as Worker).postMessage({ timeline, horizon: maskToHorizon(id, mask, heightM), ground })
+    const c = await cache
+    const r = c.compute(lat, lon, heightM)
+    const times = Array.from({ length: c.count }, (_, i) => c.timeOf(i).getTime())
+    ;(self as unknown as Worker).postMessage(toLocalResult(`custom:${lat},${lon}`, lat, lon, heightM, times, r))
   } catch (e) {
     cache = null
-    ;(self as unknown as Worker).postMessage({ error: (e as Error).message })
+    const msg = (e as Error).message || 'calculation failed'
+    ;(self as unknown as Worker).postMessage({ error: /outside|model|grid/i.test(msg) ? 'This point is outside the terrain model (north of 83° S)' : msg })
   }
 }

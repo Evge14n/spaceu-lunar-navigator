@@ -355,7 +355,9 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 /* ---------- Accuracy (06) ---------- */
 .checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .checks > div { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
-.checks > div + div { border-left: 1px solid var(--line); }
+.checks > div { border-left: 1px solid var(--line); }
+.checks > div:nth-child(3n + 1) { border-left: 0; }
+.checks > div:nth-child(n + 4) { border-top: 1px solid var(--line); }
 .checks .num { font-size: 56px; }
 .checks p { color: var(--ink-2); }
 .acc-rows { list-style: none; margin: 0; padding: 0; }
@@ -378,6 +380,7 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 @media (max-width: 980px) {
   .now, .checks { grid-template-columns: 1fr; }
   .now > div + div, .checks > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .checks > div { border-left: 0 !important; }
   .index { grid-template-columns: 1fr 1fr; }
   .why-grid, .two { grid-template-columns: 1fr; }
   .status { grid-template-columns: 1fr; }

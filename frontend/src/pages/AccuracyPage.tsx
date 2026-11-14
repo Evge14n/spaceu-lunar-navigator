@@ -47,6 +47,27 @@ export default function AccuracyPage() {
   const orient = obj(v?.terrain_orientation) ?? obj(v?.orientation)
   const orRms = orient && Array.isArray(orient.rms_m) ? (orient.rms_m as number[]) : null
   const orOther = orient && Array.isArray(orient.other_rms_m) ? (orient.other_rms_m as number[]) : null
+  const hzMoments = pick(hz, 'moments_per_point')
+  const hzTarget = pick(hz, 'target_deg')
+  const map = obj(v?.nasa_map)
+  const mapMedian = pick(map, 'median_abs_pp')
+  const mapPixels = pick(map, 'pixels')
+  const mapCorr = pick(map, 'correlation')
+  const mapBias = pick(map, 'bias_pp')
+  const within = obj(map?.within_pp)
+  const within5 = pick(within, '5')
+  const psr = obj(v?.psr)
+  const psrN = pick(psr, 'pixels')
+  const psrDark = pick(psr, 'never_lit')
+  const psrIn = pick(psr, 'interior_pixels')
+  const psrInDark = pick(psr, 'interior_never_lit')
+  const br = obj(v?.browser)
+  const brLit = obj(br?.lit_percent)
+  const brMed = pick(brLit, 'median_abs')
+  const brP90 = pick(brLit, 'p90_abs')
+  const limits = Array.isArray(v?.limits) ? (v!.limits as string[]) : null
+  const siteRows = obj(v?.sites) && Array.isArray(obj(v?.sites)!.rows) ? (obj(v?.sites)!.rows as { id: string; explanation?: string }[]) : []
+  const siteNote = obj(v?.sites) ? (obj(v?.sites)!.note as string | undefined) : undefined
 
   return (
     <div className="page accuracy">
@@ -63,9 +84,11 @@ export default function AccuracyPage() {
             <>
               <span className="num">{hzMax < 0.001 ? hzMax.toPrecision(1) : hzMax.toFixed(4)}°</span>
               <p>
-                Largest difference from JPL Horizons{hzN !== null ? ` over ${hzN.toLocaleString('en-GB')} moments` : ''}
-                {hzPts !== null ? ` at ${hzPts} points` : ''}.{hzSun !== null ? ` The Sun agrees to ${hzSun.toPrecision(1)}°.` : ''}
+                Largest difference from JPL Horizons over {hzN !== null ? hzN.toLocaleString('en-GB') : 'the'} compared positions
+                {hzMoments !== null && hzPts !== null ? ` (${hzMoments} moments at ${hzPts} points, Sun and Earth)` : ''}.
+                {hzSun !== null ? ` The Sun agrees to ${hzSun.toPrecision(1)}°.` : ''}
               </p>
+              {hzTarget !== null && <span className="label">Our target was {hzTarget}°</span>}
             </>
           ) : (
             <>
@@ -95,7 +118,19 @@ export default function AccuracyPage() {
         </div>
         <div>
           <span className="label">Check 3 / Sunlit share against NASA's map</span>
-          {mean !== null ? (
+          {mapMedian !== null ? (
+            <>
+              <span className="num">{mapMedian.toFixed(2)} pp</span>
+              <p>
+                Median difference from NASA's illumination map at {mapPixels} random pixels, computed the way the map was (60 m model, on the surface, 18.6 years).
+                {within5 !== null ? ` ${within5.toFixed(0)} % of pixels within 5 points.` : ''}
+              </p>
+              <span className="label">
+                {mapCorr !== null ? `Correlation ${mapCorr.toFixed(4)}` : ''}
+                {mapBias !== null ? ` / bias ${signed(mapBias, 2)} pp` : ''}
+              </span>
+            </>
+          ) : mean !== null ? (
             <>
               <span className="num">{signed(mean)} points</span>
               <p>
@@ -108,6 +143,40 @@ export default function AccuracyPage() {
           ) : (
             <div className="skeleton line-skeleton" aria-busy="true" />
           )}
+        </div>
+        <div>
+          <span className="label">Check 4 / Shadowed craters stay dark</span>
+          {psrN !== null && psrDark !== null ? (
+            <>
+              <span className="num">
+                {psrDark} of {psrN}
+              </span>
+              <p>
+                Pixels that NASA marks as permanently shadowed never see the Sun in our calculation
+                {psrIn !== null && psrInDark !== null ? `; ${psrInDark} of ${psrIn} well inside the shadow` : ''}.
+              </p>
+            </>
+          ) : (
+            <div className="skeleton line-skeleton" aria-busy="true" />
+          )}
+        </div>
+        <div>
+          <span className="label">Check 5 / Your own point in the browser</span>
+          {brMed !== null ? (
+            <>
+              <span className="num">{brMed.toFixed(1)} pp</span>
+              <p>
+                Typical difference of the in-browser estimate (240 m terrain) from the full calculation{brP90 !== null ? `; nine points in ten within ${brP90.toFixed(1)} pp` : ''}. The listed sites always use the full calculation.
+              </p>
+            </>
+          ) : (
+            <div className="skeleton line-skeleton" aria-busy="true" />
+          )}
+        </div>
+        <div>
+          <span className="label">Check 6 / Website against backend</span>
+          <span className="num">Same numbers</span>
+          <p>An automatic test recomputes every site's year in the browser code and compares it with the backend's summary: sunlit share, Earth in view, highest Sun, darkness and sunlight on a panel.</p>
         </div>
       </section>
 
@@ -149,6 +218,21 @@ export default function AccuracyPage() {
           </div>
         )}
         <p className="label panel-pad rowline">Columns: ours % / NASA % / difference in points</p>
+        {siteRows.length > 0 && (
+          <details className="panel-pad rowline">
+            <summary className="label" style={{ cursor: 'pointer' }}>
+              Why the two numbers differ, site by site
+            </summary>
+            {siteNote && <p className="small" style={{ margin: '10px 0' }}>{siteNote}</p>}
+            <ul className="small" style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {siteRows.map((r) => (
+                <li key={r.id}>
+                  <b>{siteNo(sites.data, r.id)}</b> {r.explanation}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       <div className="two">
@@ -164,10 +248,10 @@ export default function AccuracyPage() {
         <section className="panel" aria-label="Where it stops">
           <h2>Where it stops</h2>
           <ul>
-            <li>No temperatures and no light scattered from nearby slopes.</li>
+            {(limits ?? []).map((l) => (
+              <li key={l}>{l}</li>
+            ))}
             <li>Earth visibility is geometric: no relay satellites, no ground stations, no radio link budget.</li>
-            <li>Your own points use a coarser 240 m terrain grid, so a nearby boulder or small rise is not seen.</li>
-            <li>Rocks smaller than the 5 m grid are not in any of the terrain models.</li>
           </ul>
         </section>
       </div>

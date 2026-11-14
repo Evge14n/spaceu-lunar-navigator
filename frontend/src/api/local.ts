@@ -108,7 +108,8 @@ export function horizonMask(d: Dem, latDeg: number, lonDeg: number, heightM = 2,
     }
     // smooth sphere fallback: the geometric horizon of the instrument
     const flat = -Math.acos(R_MOON_KM / (R_MOON_KM + heightM / 1000)) / D2R
-    out[i] = Math.max(best, flat)
+    // the smooth-sphere dip only when the ray found no terrain at all (a ridge can see below it)
+    out[i] = best > -90 ? best : flat
   }
   return out
 }
