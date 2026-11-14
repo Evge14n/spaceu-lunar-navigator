@@ -32,6 +32,7 @@ export function SiteSelect({
       <label htmlFor={id}>{label}</label>
       <select id={id} value={value ?? ''} disabled={!sites.length} onChange={(e) => onChange(e.target.value)}>
         {!sites.length && <option value={value ?? ''}>Loading sites…</option>}
+        {value?.startsWith('custom:') && <option value={value}>Your point ({value.slice(7).replace(',', ', ')})</option>}
         {sites.map((s) => (
           <option key={s.id} value={s.id}>
             {siteLabel(s)}

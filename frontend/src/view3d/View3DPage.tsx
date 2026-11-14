@@ -7,7 +7,7 @@ import { clampPeriod, PeriodMovedNote, SiteSelect, TimeSlider } from '../compone
 import { HorizonPanorama } from '../components/HorizonPanorama'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateTimeUtc, siteNo } from '../format'
+import { dateTimeUtc, siteTitle } from '../format'
 import { useAppState } from '../state'
 import type { CameraMode } from './Scene'
 
@@ -47,7 +47,6 @@ export default function View3DPage() {
   const earthTr = tl.data ? nextTransition(tl.data, 'earth', tt, ms) : null
   const lookDir = sky ? (look === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
   const m = terrain.data?.meta
-  const site = sites.data?.find((x) => x.id === siteId)
   // tracks on the panorama: the next 30 days from the chosen moment (a whole year is a tangle of loops)
   const range = tl.data ? indexRange(ms, tt, Math.min(e, tt + 30 * 86_400_000)) : null
   const sunWide = sky ? 2 * sky.sun.angular_radius_deg : null
@@ -56,7 +55,7 @@ export default function View3DPage() {
   return (
     <div className="page horizon">
       <PageHead
-        stamp={`Sheet 04 / Site ${siteNo(sites.data, siteId)} ${site?.name ?? ''} / ${mode === 'site' ? 'Eye level, 2 m above the ground' : 'From above, 1.8 km up'}`}
+        stamp={`Sheet 04 / ${siteTitle(sites.data, siteId)} / ${mode === 'site' ? 'Eye level, 2 m above the ground' : 'From above, 1.8 km up'}`}
         title="Stand on the site and look around"
         lede={
           sky && widths !== null
