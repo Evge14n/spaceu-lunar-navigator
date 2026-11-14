@@ -68,7 +68,7 @@ export default function App() {
           </Notice>
         ) : (
           <ErrorBoundary resetKey={`${path}|${siteId}`}>
-            <Suspense fallback={<div className="skeleton page-skeleton" aria-busy="true" />}>
+            <Suspense fallback={<div className="route-loading" aria-busy="true" />}>
               <Page />
             </Suspense>
           </ErrorBoundary>
