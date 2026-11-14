@@ -89,6 +89,7 @@ function Markers({
             style={{ left: `${p[0]}%`, top: `${p[1]}%` }}
             aria-label={`Site ${no} ${s.name}${on ? ', selected' : ''}`}
             aria-pressed={on}
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation()
               onPick(s.id)
