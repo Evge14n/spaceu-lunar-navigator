@@ -163,3 +163,16 @@ export function PeriodMovedNote({ moved }: { moved: boolean }) {
   if (!moved) return null
   return <p className="muted small">The chosen dates are outside the computed data, so the first two weeks of the data are shown.</p>
 }
+
+/** Instrument height above the ground: 1, 2, 5 or 10 m (masks published per height for the listed sites). */
+export function HeightSwitch({ value, onChange, disabled }: { value: number; onChange: (h: number) => void; disabled?: boolean }) {
+  return (
+    <div className="seg" role="group" aria-label="Instrument height above the ground">
+      {[1, 2, 5, 10].map((h) => (
+        <button key={h} type="button" aria-pressed={value === h} disabled={disabled && h !== 2} onClick={() => onChange(h)}>
+          {h} m
+        </button>
+      ))}
+    </div>
+  )
+}

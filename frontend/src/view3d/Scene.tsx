@@ -385,7 +385,10 @@ function SceneInner({
   lookDir,
   resetKey,
   overlay,
+  eyeM = 2,
 }: {
+  /** eye (instrument) height above the ground, m */
+  eyeM?: number
   overlay?: OverlayRefs
   resetKey: string
   terrain: Terrain
@@ -397,7 +400,7 @@ function SceneInner({
   lookDir: [number, number, number]
 }) {
   const h0 = centreHeight(terrain) * exaggeration
-  const eyeY = h0 + 2
+  const eyeY = h0 + eyeM
   return (
     <div className="canvas-wrap" role="img" aria-label="3D view of the terrain around the site with the Sun and the Earth">
     <Canvas

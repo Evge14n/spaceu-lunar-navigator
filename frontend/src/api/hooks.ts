@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { atHeight } from './compute'
 import { dataSource, getApollo, getHeights, getHorizon, getSites, getTerrain, getTimeline, getValidation, getYearSummaries } from './client'
 import type { DataSource, Horizon, Site, Summary, Terrain, Timeline } from './types'
 
@@ -28,6 +29,19 @@ export const useTimeline = (siteId: string | null) =>
   useAsync<Timeline | null>(() => (siteId ? getTimeline(siteId) : Promise.resolve(null)), [siteId])
 export const useHorizon = (siteId: string | null) =>
   useAsync<Horizon | null>(() => (siteId ? getHorizon(siteId) : Promise.resolve(null)), [siteId])
+/** Horizon at an instrument height (2 m = the main file). */
+export const useHorizonAt = (siteId: string | null, heightM: number) =>
+  useAsync<Horizon | null>(() => (siteId ? getHorizon(siteId, heightM) : Promise.resolve(null)), [siteId, heightM])
+
+/** Timeline for an instrument height: the published one at 2 m, otherwise the same Sun and Earth over the mask at that height. */
+export const useTimelineAt = (siteId: string | null, heightM: number) =>
+  useAsync<Timeline | null>(async () => {
+    if (!siteId) return null
+    const tl = await getTimeline(siteId)
+    if (heightM === 2) return tl
+    return atHeight(tl, await getHorizon(siteId, heightM))
+  }, [siteId, heightM])
+
 export const useTerrain = (siteId: string | null) =>
   useAsync<Terrain | null>(() => (siteId ? getTerrain(siteId) : Promise.resolve(null)), [siteId])
 

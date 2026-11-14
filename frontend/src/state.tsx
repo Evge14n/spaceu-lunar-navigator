@@ -24,7 +24,11 @@ export interface Selection {
   from: number
   to: number
   t: number
+  /** instrument height above the ground, m: 1, 2 (default), 5 or 10 */
+  heightM: number
 }
+
+export const HEIGHTS = [1, 2, 5, 10] as const
 
 interface Ctx extends Selection {
   path: string
@@ -34,6 +38,7 @@ interface Ctx extends Selection {
   setCompare: (ids: string[]) => void
   setPeriod: (from: number, to: number) => void
   setTime: (t: number) => void
+  setHeight: (h: number) => void
   navigate: (path: string) => void
   href: (path: string) => string
 }
@@ -59,6 +64,7 @@ function readSelection(q: URLSearchParams): Selection {
     from: parseT(q.get('from'), DEFAULT_FROM),
     to: parseT(q.get('to'), DEFAULT_TO),
     t: parseT(q.get('t'), DEFAULT_T),
+    heightM: (HEIGHTS as readonly number[]).includes(Number(q.get('h'))) ? Number(q.get('h')) : 2,
   }
 }
 
@@ -69,6 +75,7 @@ function query(sel: Selection): string {
   q.set('from', isoMin(sel.from))
   q.set('to', isoMin(sel.to))
   q.set('t', isoMin(sel.t))
+  if (sel.heightM !== 2) q.set('h', String(sel.heightM))
   return q.toString()
 }
 
@@ -124,6 +131,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [],
   )
   const setTime = useCallback((t: number) => setSel((s) => (s.t === t ? s : { ...s, t })), [])
+  const setHeight = useCallback((heightM: number) => setSel((s) => (s.heightM === heightM ? s : { ...s, heightM })), [])
 
   const navigate = useCallback(
     (p: string) => {
@@ -156,8 +164,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [navigate])
 
   const value = useMemo<Ctx>(
-    () => ({ ...sel, path, compareFromUrl, setSite, setCompare, setPeriod, setTime, navigate, href }),
-    [sel, path, compareFromUrl, setSite, setCompare, setPeriod, setTime, navigate, href],
+    () => ({ ...sel, path, compareFromUrl, setSite, setCompare, setPeriod, setTime, setHeight, navigate, href }),
+    [sel, path, compareFromUrl, setSite, setCompare, setPeriod, setTime, setHeight, navigate, href],
   )
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>
 }
