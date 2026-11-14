@@ -158,4 +158,5 @@ export interface IlluminationMeta {
   x_km: [number, number]
   y_km: [number, number]
   source?: string
+  legend?: { percent: number; grey: number }[]
 }

@@ -9,6 +9,7 @@ import {
   useAsync,
   useSites,
   useTimeline,
+  type Site,
 } from '../api'
 import { clampPeriod, siteLabel } from '../components/Controls'
 import { Notice } from '../components/Notice'
@@ -21,6 +22,12 @@ export function project(lat: number, lon: number): [number, number] {
   const rho = 2 * R_KM * Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)
   const l = (lon * Math.PI) / 180
   return [rho * Math.sin(l), rho * Math.cos(l)]
+}
+
+/** Marker position in km: the backend's stereographic metres when given, else projected lat/lon. */
+function pos(s: Site): [number, number] {
+  if (typeof s.x_m === 'number' && typeof s.y_m === 'number') return [s.x_m / 1000, s.y_m / 1000]
+  return project(s.lat!, s.lon!)
 }
 
 export function unproject(x: number, y: number): [number, number] {
@@ -38,14 +45,16 @@ export default function MapPage() {
   const [pick, setPick] = useState<{ lat: string; lon: string }>({ lat: '-89.5', lon: '0' })
 
   const list = useMemo(() => (sites.data ?? []).filter((s) => s.lat !== null && s.lon !== null), [sites.data])
-  const extent = useMemo(() => {
-    if (layer.data) {
-      const { x_km, y_km } = layer.data.meta
-      return Math.max(Math.abs(x_km[0]), Math.abs(x_km[1]), Math.abs(y_km[0]), Math.abs(y_km[1]))
-    }
-    const far = list.reduce((m, s) => Math.max(m, Math.hypot(...project(s.lat!, s.lon!))), 0)
-    return Math.max(40, far * 1.18)
+  const fullExtent = useMemo(() => {
+    const far = list.reduce((m, s) => Math.max(m, Math.hypot(...pos(s))), 0)
+    const fit = Math.max(40, far * 1.15)
+    if (!layer.data) return fit
+    const { x_km, y_km } = layer.data.meta
+    return Math.min(fit, Math.max(Math.abs(x_km[0]), Math.abs(x_km[1]), Math.abs(y_km[0]), Math.abs(y_km[1])))
   }, [list, layer.data])
+  const ZOOMS = [1, 2.5, 6, 14]
+  const [zoom, setZoom] = useState(0)
+  const extent = fullExtent / ZOOMS[zoom]
 
   const site = list.find((s) => s.id === siteId)
   const sum = useMemo(() => {
@@ -66,7 +75,22 @@ export default function MapPage() {
     return () => ro.disconnect()
   }, [sites.loading])
   const u = (2 * E) / widthPx
-  const rings = [89, 88, 87, 86, 85, 84, 82, 80].filter((lat) => Math.hypot(...project(-lat, 0)) < E)
+  const showLabel = useMemo(() => {
+    const placed: [number, number][] = []
+    const out = new Set<string>()
+    const order = [...list].sort((a, b) => (a.id === siteId ? -1 : b.id === siteId ? 1 : 0))
+    for (const s of order) {
+      const [x, y] = pos(s)
+      const sx = x / u
+      const sy = -y / u
+      if (placed.every(([px, py]) => Math.abs(px - sx) > 150 || Math.abs(py - sy) > 18)) {
+        placed.push([sx, sy])
+        out.add(s.id)
+      }
+    }
+    return out
+  }, [list, siteId, u])
+  const rings = [-89.5, -89, -88, -87, -86, -85, -84, -83].filter((lat) => Math.hypot(...project(lat, 0)) < E * 0.98)
   const spokes = Array.from({ length: 12 }, (_, i) => i * 30)
 
   const onMapClick = (ev: React.MouseEvent<SVGSVGElement>) => {
@@ -114,11 +138,11 @@ export default function MapPage() {
               )}
               <g className="graticule" clipPath="url(#disc)">
                 {rings.map((lat) => {
-                  const r = Math.hypot(...project(-lat, 0))
+                  const r = Math.hypot(...project(lat, 0))
                   return (
                     <g key={lat}>
                       <circle r={r} />
-                      <text x={r * 0.71 + 3 * u} y={-r * 0.71} className="grat-label">{lat}° S</text>
+                      <text x={r * 0.71 + 3 * u} y={-r * 0.71} className="grat-label">{Math.abs(lat)}° S</text>
                     </g>
                   )
                 })}
@@ -143,7 +167,7 @@ export default function MapPage() {
                 </g>
               )}
               {list.map((s) => {
-                const [x, y] = project(s.lat!, s.lon!)
+                const [x, y] = pos(s)
                 const on = s.id === siteId
                 return (
                   <g
@@ -164,11 +188,33 @@ export default function MapPage() {
                   >
                     <circle r={22 * u} className="hit" />
                     <circle r={(on ? 7 : 5) * u} className="dot" />
-                    <text x={11 * u} y={4.5 * u} className="marker-label">{s.name}</text>
+                    {showLabel.has(s.id) && <text x={11 * u} y={4.5 * u} className="marker-label">{s.name}</text>}
                   </g>
                 )
               })}
             </svg>
+            <div className="map-tools">
+              <div className="seg" role="group" aria-label="Zoom">
+                <button onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} aria-label="Zoom out">−</button>
+                <button onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} disabled={zoom === ZOOMS.length - 1} aria-label="Zoom in">+</button>
+                <button onClick={() => setZoom(0)} aria-pressed={zoom === 0}>All sites</button>
+              </div>
+              <span className="muted small">Width shown: {Math.round(2 * E)} km</span>
+              {layer.data?.meta.legend && (
+                <div className="legend" aria-label="Average illumination legend">
+                  <span className="muted small">Sunlit time</span>
+                  <span
+                    className="legend-bar"
+                    style={{
+                      background: `linear-gradient(90deg, ${layer.data.meta.legend
+                        .map((l) => `rgb(${l.grey} ${l.grey} ${l.grey}) ${l.percent}%`)
+                        .join(', ')})`,
+                    }}
+                  />
+                  <span className="legend-ticks small"><span>0 %</span><span>50 %</span><span>100 %</span></span>
+                </div>
+              )}
+            </div>
             <figcaption>
               {layer.data
                 ? `Colour layer: average illumination, ${layer.data.meta.source ?? 'LOLA (PGDA)'}.`
@@ -197,6 +243,11 @@ export default function MapPage() {
                   <div className="skeleton line-skeleton" />
                 )}
                 <p className="muted small">For the selected period. Source: {site.source}</p>
+                {site.nasa_avg_illumination_percent !== undefined && (
+                  <p className="small">
+                    NASA LOLA map, 18.6-year average at this point: <b>{site.nasa_avg_illumination_percent} %</b> sunlit
+                  </p>
+                )}
                 <div className="actions">
                   <a className="btn" href={href('/timeline')}>Open timeline</a>
                   <a className="btn ghost" href={href('/3d')}>3D view</a>

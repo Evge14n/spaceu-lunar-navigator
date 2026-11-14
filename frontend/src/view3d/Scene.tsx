@@ -25,6 +25,15 @@ function useTerrainGeometry(terrain: Terrain) {
   }, [terrain])
 }
 
+/** Mean height along the tile border: where the far ground ring starts. */
+export function edgeHeight(terrain: Terrain): number {
+  const { n } = terrain.meta
+  const h = terrain.heights
+  let sum = 0
+  for (let i = 0; i < n; i++) sum += h[i] + h[(n - 1) * n + i] + h[i * n] + h[i * n + n - 1]
+  return sum / (4 * n)
+}
+
 /** Height at the tile centre (the site), metres. */
 export function centreHeight(terrain: Terrain): number {
   const { n } = terrain.meta
@@ -313,13 +322,15 @@ export function Scene({
       <group scale={[1, exaggeration, 1]}>
         <TerrainMesh terrain={terrain} />
       </group>
-      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={((terrain.meta.min_h ?? h0) - 3) * exaggeration} />}
+      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={(edgeHeight(terrain) - 5) * exaggeration} />}
       <SkyDome sky={sky} enlarge={enlarge} />
       <Compass eyeY={eyeY} />
-      <mesh position={[0, eyeY - 1, 0]}>
-        <cylinderGeometry args={[mode === 'overview' ? 40 : 0.05, mode === 'overview' ? 40 : 0.05, mode === 'overview' ? 300 : 2, 12]} />
-        <meshBasicMaterial color="#ffb547" />
-      </mesh>
+      {mode === 'overview' && (
+        <mesh position={[0, eyeY + 140, 0]}>
+          <cylinderGeometry args={[25, 25, 300, 12]} />
+          <meshBasicMaterial color="#ffb547" />
+        </mesh>
+      )}
       <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} resetKey={resetKey} />
     </Canvas>
     </div>
