@@ -1,0 +1,141 @@
+// Data layer. Reads static JSON next to the site; for custom coordinates calls the live API.
+//
+// One switch, VITE_DATA (in .env or the build command):
+//   auto (default) - use ./data/ (real files from backend/) when data/sites.json has real coordinates,
+//                    otherwise fall back to ./mock/ (frontend/public/mock, same shapes)
+//   real           - always ./data/
+//   mock           - always ./mock/
+// VITE_API_URL (optional): live FastAPI, used only for custom coordinates ("custom:-89.5,0").
+
+import type { DataSource, Horizon, Site, Terrain, TerrainMeta, Timeline } from './types'
+
+const env = import.meta.env
+const MODE = ((env.VITE_DATA as string | undefined) ?? 'auto') as 'auto' | DataSource
+const BASE = env.BASE_URL.endsWith('/') ? env.BASE_URL : env.BASE_URL + '/'
+export const API_URL = ((env.VITE_API_URL as string | undefined) ?? '').replace(/\/$/, '')
+
+const cache = new Map<string, Promise<unknown>>()
+
+export class DataError extends Error {
+  url: string
+  constructor(message: string, url: string) {
+    super(message)
+    this.url = url
+  }
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  let p = cache.get(url) as Promise<T> | undefined
+  if (!p) {
+    p = fetch(url).then(async (r) => {
+      if (!r.ok) throw new DataError(`${r.status} ${r.statusText}`, url)
+      return (await r.json()) as T
+    })
+    p.catch(() => cache.delete(url))
+    cache.set(url, p)
+  }
+  return p
+}
+
+function hasRealSites(x: unknown): boolean {
+  return (
+    Array.isArray(x) &&
+    x.length > 0 &&
+    x.every((s: Site) => typeof s.lat === 'number' && typeof s.lon === 'number' && !s.mock)
+  )
+}
+
+let sourcePromise: Promise<DataSource> | null = null
+
+/** Which data the site is showing. Resolved once per page load. */
+export function dataSource(): Promise<DataSource> {
+  if (!sourcePromise) {
+    sourcePromise =
+      MODE !== 'auto'
+        ? Promise.resolve(MODE)
+        : getJson<Site[]>(`${BASE}data/sites.json`)
+            .then((s) => (hasRealSites(s) ? ('real' as const) : ('mock' as const)))
+            .catch(() => 'mock' as const)
+  }
+  return sourcePromise
+}
+
+async function staticUrl(path: string): Promise<string> {
+  const src = await dataSource()
+  return `${BASE}${src === 'real' ? 'data' : 'mock'}/${path}`
+}
+
+export function isCustom(siteId: string): boolean {
+  return siteId.startsWith('custom:')
+}
+
+/** "custom:-89.5,0" for given coordinates. */
+export function customId(lat: number, lon: number): string {
+  return `custom:${Math.round(lat * 1e4) / 1e4},${Math.round(lon * 1e4) / 1e4}`
+}
+
+export async function getSites(): Promise<Site[]> {
+  return getJson<Site[]>(await staticUrl('sites.json'))
+}
+
+/** Full timeline for a site. Static file for listed sites, live API for custom coordinates. */
+export async function getTimeline(siteId: string, start?: string, end?: string): Promise<Timeline> {
+  if (isCustom(siteId)) {
+    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    const q = new URLSearchParams({ site: siteId, step: '60', height_m: '2' })
+    if (start) q.set('start', start)
+    if (end) q.set('end', end)
+    return getJson<Timeline>(`${API_URL}/api/timeline?${q}`)
+  }
+  return getJson<Timeline>(await staticUrl(`timeline/${siteId}.json`))
+}
+
+export async function getHorizon(siteId: string): Promise<Horizon> {
+  if (isCustom(siteId)) {
+    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    return getJson<Horizon>(`${API_URL}/api/horizon?site=${encodeURIComponent(siteId)}&height_m=2`)
+  }
+  return getJson<Horizon>(await staticUrl(`horizon/${siteId}.json`))
+}
+
+const terrainCache = new Map<string, Promise<Terrain>>()
+
+/** Terrain tile: metadata JSON + n x n float32 little-endian heights. */
+export function getTerrain(siteId: string): Promise<Terrain> {
+  let p = terrainCache.get(siteId)
+  if (!p) {
+    p = (async () => {
+      const metaUrl = await staticUrl(`terrain/${siteId}.json`)
+      const meta = await getJson<TerrainMeta>(metaUrl)
+      const binUrl = await staticUrl(meta.file.replace(/^terrain\//, 'terrain/'))
+      const r = await fetch(binUrl)
+      if (!r.ok) throw new DataError(`${r.status} ${r.statusText}`, binUrl)
+      const buf = await r.arrayBuffer()
+      const heights = new Float32Array(buf)
+      if (heights.length !== meta.n * meta.n)
+        throw new DataError(`terrain has ${heights.length} values, expected ${meta.n * meta.n}`, binUrl)
+      return { meta, heights }
+    })()
+    p.catch(() => terrainCache.delete(siteId))
+    terrainCache.set(siteId, p)
+  }
+  return p
+}
+
+/** URL of the illumination map layer (data/illumination.png), or null when it is not published yet. */
+export async function getIlluminationLayer(): Promise<{ url: string; meta: IlluminationMeta } | null> {
+  try {
+    const meta = await getJson<IlluminationMeta>(`${BASE}data/illumination.json`)
+    return { url: `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
+  } catch {
+    return null
+  }
+}
+
+/** Expected next to illumination.png: polar stereographic extent in km (x east, y towards 0 E). */
+export interface IlluminationMeta {
+  file?: string
+  x_km: [number, number]
+  y_km: [number, number]
+  source?: string
+}

@@ -1,0 +1,1 @@
+{"mock": true, "site": "mockD", "n": 128, "size_m": 10000, "step_m": 78.74, "center": {"lat": -86.0, "lon": 30.0}, "min_h": -185.4, "max_h": 142.0, "file": "terrain/mockD.bin"}

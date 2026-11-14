@@ -1,0 +1,42 @@
+[
+ {
+  "mock": true,
+  "id": "mockA",
+  "name": "Mock site A (ridge)",
+  "lat": -89.5,
+  "lon": 0.0,
+  "elevation_m": 0,
+  "source": "mock point, synthetic terrain",
+  "has_5m": false
+ },
+ {
+  "mock": true,
+  "id": "mockB",
+  "name": "Mock site B (crater rim)",
+  "lat": -88.8,
+  "lon": 120.0,
+  "elevation_m": 0,
+  "source": "mock point, synthetic terrain",
+  "has_5m": false
+ },
+ {
+  "mock": true,
+  "id": "mockC",
+  "name": "Mock site C (plain)",
+  "lat": -87.5,
+  "lon": -60.0,
+  "elevation_m": 0,
+  "source": "mock point, synthetic terrain",
+  "has_5m": false
+ },
+ {
+  "mock": true,
+  "id": "mockD",
+  "name": "Mock site D (valley)",
+  "lat": -86.0,
+  "lon": 30.0,
+  "elevation_m": 0,
+  "source": "mock point, synthetic terrain",
+  "has_5m": false
+ }
+]
