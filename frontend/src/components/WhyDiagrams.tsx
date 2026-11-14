@@ -39,8 +39,8 @@ function Mast() {
       <text x="20" y="44" className="d-num">68.0 %</text>
       <rect x="20" y="62" width="250" height="68" fill="var(--terrain)" stroke="var(--ink)" strokeWidth="1.5" />
       <text x="20" y="156" className="d-label">Whole site area, 1 m up</text>
-      <text x="300" y="26" className="d-num">89.3 %</text>
-      <rect x="300" y="44" width="250" height="86" fill="var(--white)" stroke="var(--ink)" strokeWidth="1.5" />
+      <text x="300" y="26" className="d-num" style={{ fill: 'var(--sun)' }}>89.3 %</text>
+      <rect x="300" y="44" width="250" height="86" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.5" />
       <text x="300" y="156" className="d-label">Whole site area, 5 m up</text>
     </svg>
   )
