@@ -82,6 +82,15 @@ const WindowStrip = memo(function WindowStrip({
   )
 })
 
+function TimelineHead() {
+  return (
+    <div className="page-head">
+      <h1>Timeline</h1>
+      <p className="lede">Sun and Earth elevation against the real horizon of the site. Shaded strips show when each is visible.</p>
+    </div>
+  )
+}
+
 export default function TimelinePage() {
   const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
   const sites = useSites()
@@ -97,7 +106,9 @@ export default function TimelinePage() {
     const [i0, i1] = range
     const d = tl.data
     const rows = []
-    const every = Math.max(1, Math.ceil((i1 - i0 + 1) / 700))
+    // about one point per 2 screen pixels: enough for the eye, far less work on phones
+    const maxPoints = Math.min(700, Math.max(240, Math.round(window.innerWidth * 0.55)))
+    const every = Math.max(1, Math.ceil((i1 - i0 + 1) / maxPoints))
     for (let i = i0; i <= i1; i += every) {
       rows.push({
         t: ms[i],
@@ -112,8 +123,21 @@ export default function TimelinePage() {
   }, [tl.data, from, to])
   const tChart = useDeferredValue(t)
 
-  if (sites.loading || tl.loading) return <div className="skeleton page-skeleton" aria-busy="true" />
-  if (tl.error) return <Notice tone="error" title="No timeline for this site yet">{tl.error.message}</Notice>
+  if (sites.loading || tl.loading)
+    return (
+      <div className="page timeline">
+        <TimelineHead />
+        <div className="skeleton page-skeleton" aria-busy="true" />
+      </div>
+    )
+  if (tl.error)
+    return (
+      <div className="page timeline">
+        <TimelineHead />
+        {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
+        <Notice tone="error" title="No timeline for this site yet">{tl.error.message}</Notice>
+      </div>
+    )
   if (!tl.data || !view) return <Notice title="Pick a site and a period inside the data range" />
 
   const d = tl.data
@@ -125,10 +149,7 @@ export default function TimelinePage() {
 
   return (
     <div className="page timeline">
-      <div className="page-head">
-        <h1>Timeline</h1>
-        <p className="lede">Sun and Earth elevation against the real horizon of the site. Shaded strips show when each is visible.</p>
-      </div>
+      <TimelineHead />
 
       <div className="toolbar">
         {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
