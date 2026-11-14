@@ -25,7 +25,7 @@ Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), the API contract is in 
 
 ## Use of AI
 
-AI tools assisted with writing code.
+Claude helped with the code.
 
 ## License
 

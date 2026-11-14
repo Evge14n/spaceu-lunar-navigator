@@ -57,4 +57,3 @@ The shared selection (site, sites to compare, period, time) lives in the URL, so
 - Angles in degrees, azimuth from north clockwise, times in UTC. 3D axes: x = east, y = up, z = south (see `docs/ARCHITECTURE.md`).
 - Interface text in English. Colours: amber `var(--sun)` means the Sun, blue `var(--earth)` means the Earth, nothing else uses them.
 - Work in a branch, open a pull request; the build and tests run on every PR. `main` must always build.
-- Log AI help in `docs/AI_LOG.md`.
