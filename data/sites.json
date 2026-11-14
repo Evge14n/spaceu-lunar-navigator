@@ -1,0 +1,192 @@
+[
+ {
+  "id": "site01",
+  "name": "Connecting ridge",
+  "lat": -89.47485,
+  "lon": 222.5569,
+  "elevation_m": 1947.4,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site01",
+  "x_m": -10770.0,
+  "y_m": -11730.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 88.4,
+  "tile_center": {
+   "lat": -89.46316,
+   "lon": 222.5104
+  },
+  "tile_size_km": 16.0
+ },
+ {
+  "id": "site04",
+  "name": "Shackleton rim",
+  "lat": -89.68643,
+  "lon": 197.0629,
+  "elevation_m": 1729.2,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site04",
+  "x_m": -2790.0,
+  "y_m": -9090.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 87.1,
+  "tile_center": {
+   "lat": -89.76681,
+   "lon": 188.1301
+  },
+  "tile_size_km": 16.0
+ },
+ {
+  "id": "site06",
+  "name": "Nobile rim 1",
+  "lat": -85.30028,
+  "lon": 37.0989,
+  "elevation_m": 6762.0,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site06",
+  "x_m": 86010.0,
+  "y_m": 113730.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 83.1,
+  "tile_center": {
+   "lat": -85.4381,
+   "lon": 37.3667
+  },
+  "tile_size_km": 20.0
+ },
+ {
+  "id": "site07",
+  "name": "Peak near Shackleton",
+  "lat": -88.8089,
+  "lon": 123.7561,
+  "elevation_m": 1648.3,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site07",
+  "x_m": 30030.0,
+  "y_m": -20070.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 86.0,
+  "tile_center": {
+   "lat": -88.81101,
+   "lon": 123.6901
+  },
+  "tile_size_km": 16.0
+ },
+ {
+  "id": "site11",
+  "name": "de Gerlache rim",
+  "lat": -88.66463,
+  "lon": 291.6044,
+  "elevation_m": 1815.1,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site11",
+  "x_m": -37650.0,
+  "y_m": 14910.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 82.7,
+  "tile_center": {
+   "lat": -88.68342,
+   "lon": 292.0679
+  },
+  "tile_size_km": 16.0
+ },
+ {
+  "id": "site20",
+  "name": "Leibnitz beta plateau",
+  "lat": -85.44402,
+  "lon": 32.1965,
+  "elevation_m": 6381.1,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site20",
+  "x_m": 73650.0,
+  "y_m": 116970.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 74.7,
+  "tile_center": {
+   "lat": -85.42658,
+   "lon": 31.7428
+  },
+  "tile_size_km": 16.0
+ },
+ {
+  "id": "site23",
+  "name": "Malapert massif",
+  "lat": -86.00114,
+  "lon": 2.055,
+  "elevation_m": 5156.8,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Site23",
+  "x_m": 4350.0,
+  "y_m": 121230.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 81.9,
+  "tile_center": {
+   "lat": -85.99478,
+   "lon": 359.7642
+  },
+  "tile_size_km": 21.0
+ },
+ {
+  "id": "haworth",
+  "name": "Haworth",
+  "lat": -86.36851,
+  "lon": 336.7236,
+  "elevation_m": 2836.3,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Haworth",
+  "x_m": -43530.0,
+  "y_m": 101190.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 70.5,
+  "tile_center": {
+   "lat": -86.76394,
+   "lon": 337.223
+  },
+  "tile_size_km": 29.8
+ },
+ {
+  "id": "shoemaker",
+  "name": "Shoemaker",
+  "lat": -87.20772,
+  "lon": 61.592,
+  "elevation_m": 677.1,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "Shoemaker",
+  "x_m": 74490.0,
+  "y_m": 40290.0,
+  "point_rule": "best-lit 60 m pixel of AVGVISIB_85S_060M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 59.2,
+  "tile_center": {
+   "lat": -87.18351,
+   "lon": 62.835
+  },
+  "tile_size_km": 20.0
+ },
+ {
+  "id": "dm2",
+  "name": "Nobile rim 2",
+  "lat": -83.72496,
+  "lon": 59.4201,
+  "elevation_m": 1221.5,
+  "source": "LOLA 5 m site model (PGDA, Barker et al. 2021)",
+  "has_5m": true,
+  "pgda_model": "DM2",
+  "x_m": 163980.0,
+  "y_m": 96900.0,
+  "point_rule": "best-lit 120 m pixel of AVGVISIB_75S_120M_201608.TIF inside the 5 m tile",
+  "nasa_avg_illumination_percent": 53.9,
+  "tile_center": {
+   "lat": -83.95402,
+   "lon": 58.8221
+  },
+  "tile_size_km": 20.0
+ }
+]
