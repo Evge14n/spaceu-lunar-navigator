@@ -160,6 +160,23 @@ input[type='range'] { width: 100%; accent-color: var(--sun); min-height: 32px; }
 .strip-sun .strip-on { fill: var(--sun); }
 .strip-earth .strip-on { fill: var(--earth); }
 
+/* Horizon panorama */
+.pano { margin: 0; padding: 14px 12px 12px; border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.pano svg { width: 100%; height: auto; display: block; }
+.pano figcaption { color: var(--ink-3); font-size: 0.85rem; padding: 0 6px; }
+.pano-grid { stroke: var(--grid); stroke-width: 0.6; }
+.pano-zero { stroke: var(--ink-3); stroke-width: 0.8; stroke-dasharray: 3 3; }
+.pano-tick, .pano-dir { fill: var(--ink-3); font-size: 10px; font-family: var(--font); }
+.pano-dir { font-weight: 700; }
+.pano-ground { fill: var(--terrain); }
+.pano-track-sun { fill: none; stroke: var(--sun); stroke-width: 1; stroke-dasharray: 1.5 3; opacity: 0.7; }
+.pano-track-earth { fill: none; stroke: var(--earth); stroke-width: 1; stroke-dasharray: 1.5 3; opacity: 0.7; }
+.pano-sun { fill: var(--sun); }
+.pano-earth { fill: var(--earth); }
+.pano-sun.hidden, .pano-earth.hidden { fill-opacity: 0.25; stroke-dasharray: 2 2; }
+.pano-sun.hidden { stroke: var(--sun); }
+.pano-earth.hidden { stroke: var(--earth); }
+
 /* Compare */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-2); }
 .cmp { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 520px; }
