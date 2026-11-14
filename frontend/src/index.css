@@ -316,7 +316,20 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .ov-az span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .ov-az span:first-child { transform: none; left: 14px !important; }
 .ov-az span:last-child { transform: translateX(-100%); left: auto; }
-.ov-note { left: 14px; top: 12px; max-width: 70%; line-height: 1.5; background: rgba(10, 13, 18, 0.8); padding: 4px 8px; text-transform: none; font-size: 12px; }
+.ov-top { position: absolute; left: 14px; top: 12px; right: 84px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
+.ov-note { max-width: 80%; margin: 0; line-height: 1.5; background: rgba(10, 13, 18, 0.8); padding: 4px 8px; font-family: var(--f-mono); font-size: 12px; color: #e9ecef; letter-spacing: 0.04em; }
+.ov-note .short { display: none; }
+.stage-note { margin: 0; padding: 12px 14px; border: 1px solid var(--ink); background: var(--white); font-family: var(--f-mono); font-size: 12px; line-height: 1.5; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+/* Night: said in words over the dark scene and above the panorama, with a way out. */
+.night { pointer-events: auto; display: grid; gap: 4px; justify-items: start; max-width: 340px; padding: 10px 12px; background: var(--sheet); color: var(--ink); border: var(--bw) solid var(--ink); }
+.night .night-t { font-family: var(--f-head); font-size: 30px; font-weight: 700; line-height: 1; text-transform: uppercase; }
+.night .btn { margin-top: 6px; }
+.night.compact { max-width: none; grid-template-columns: 1fr auto; align-items: center; align-content: center; margin-bottom: 12px; background: var(--white); min-height: 84px; }
+.night.compact.day { border-width: 1px; }
+.scene-panel:focus { outline: none; }
+.night.compact .label { grid-column: 1; }
+.night.compact .night-t { grid-column: 1; font-size: 24px; }
+.night.compact .btn { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
 .ov-tag { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-family: var(--f-mono); font-size: 11px; font-weight: 600; padding: 1px 5px; background: rgba(10, 13, 18, 0.75); }
 .ov-tag.sun { color: #ffb38a; }
 .ov-tag.earth { color: #9db8ff; }
@@ -432,6 +445,18 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
   .seg { width: 100%; }
   .seg button { flex: 1 1 auto; padding: 10px 10px; }
   .stage { height: 56vh; }
+  .ov-top { left: 8px; top: 8px; right: 72px; }
+  .ov-note { max-width: none; font-size: 11px; padding: 3px 6px; }
+  .ov-note .long { display: none; }
+  .ov-note .short { display: inline; }
+  .night { max-width: none; padding: 8px 10px; }
+  .night .night-t { font-size: 24px; }
+  .ov-top .night { gap: 2px; padding: 6px 8px; }
+  .night .night-why { display: none; }
+  .ov-top .night .night-t { font-size: 20px; }
+  .ov-top .night .btn { margin-top: 4px; min-height: 44px; padding: 0 14px; }
+  .night.compact { grid-template-columns: 1fr; min-height: 132px; }
+  .night.compact .btn { grid-column: 1; grid-row: auto; margin-top: 6px; }
   .wrow { grid-template-columns: 90px 1fr; }
   .why-end h2 { font-size: 34px; }
   .acc-rows li { padding: 10px 14px; grid-template-columns: 1fr 120px; }
