@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react'
-import { cpSync, createReadStream, existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cpSync, createReadStream, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vitest/config'
 
@@ -19,7 +20,23 @@ function manifest(): string {
     }
   }
   if (existsSync(repoData)) walk(repoData)
-  return JSON.stringify({ files: files.sort() })
+  return JSON.stringify({ files: files.sort(), layers: freshLayers() })
+}
+
+/** Web copies in public/layers/ that still match their source in ../data (sha256 recorded by scripts/make_layers.py). */
+function freshLayers(): string[] {
+  const dir = resolve(import.meta.dirname, 'public/layers')
+  if (!existsSync(dir)) return []
+  const out: string[] = []
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue
+    const meta = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { source: string; source_sha256: string }
+    const src = resolve(import.meta.dirname, '..', meta.source)
+    if (!existsSync(src)) continue
+    const sha = createHash('sha256').update(readFileSync(src)).digest('hex')
+    if (sha === meta.source_sha256) out.push(f.replace(/\.json$/, ''))
+  }
+  return out
 }
 
 /** Serve ../data at <base>data/ in dev and copy it into dist/data on build, exactly like Pages. */
