@@ -19,6 +19,7 @@ import {
   summarize,
   timesMs,
   useSites,
+  useHorizon,
   useTimeline,
   visibleFlags,
   riseSet,
@@ -26,6 +27,7 @@ import {
 } from '../api'
 import { clampPeriod, fmtUtc, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
+import { HorizonPanorama } from '../components/HorizonPanorama'
 import { useAppState } from '../state'
 
 /** One tick per day (or every few days for long periods), at 00:00 UTC. */
@@ -82,6 +84,7 @@ export default function TimelinePage() {
   const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
   const sites = useSites()
   const tl = useTimeline(siteId)
+  const horizon = useHorizon(siteId)
   const site = sites.data?.find((s) => s.id === siteId)
 
   const view = useMemo(() => {
@@ -197,6 +200,7 @@ export default function TimelinePage() {
           Grey area: height of the mountains in the direction of the Sun. The Sun counts as visible while any part of its disc is above them. Click the chart to jump to a moment.
         </figcaption>
       </figure>
+      {horizon.data && <HorizonPanorama horizon={horizon.data} sky={sky} tl={d} i0={view.i0} i1={view.i1} />}
       <p className="source">Source: {d.source}</p>
     </div>
   )
