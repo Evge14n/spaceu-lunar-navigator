@@ -7,7 +7,8 @@
 //   mock           - always ./mock/
 // VITE_API_URL (optional): live FastAPI, used only for custom coordinates ("custom:-89.5,0").
 
-import type { DataSource, Horizon, Site, Terrain, TerrainMeta, Timeline } from './types'
+import type { DataSource, HeightRow, Horizon, Site, Summary, Terrain, TerrainMeta, Timeline } from './types'
+import { summarize, timesMs } from './compute'
 
 const env = import.meta.env
 const MODE = ((env.VITE_DATA as string | undefined) ?? 'auto') as 'auto' | DataSource
@@ -105,9 +106,43 @@ export async function getSites(): Promise<Site[]> {
 }
 
 /** Full timeline for a site. Static file for listed sites, live API for custom coordinates. */
+/** Can any point be computed in this browser (ephemeris vectors and the 240 m terrain grid are published)? */
+export async function canComputeLocally(): Promise<boolean> {
+  if ((await dataSource()) !== 'real') return false
+  const f = await dataFiles()
+  return f.has('ephem/year.json') && f.has('dem240.json')
+}
+
+const localCache = new Map<string, Promise<{ timeline: Timeline; horizon: Horizon }>>()
+
+/** Timeline and horizon for a custom point, computed in a Web Worker from data/ephem and data/dem240. */
+export function computeLocal(siteId: string): Promise<{ timeline: Timeline; horizon: Horizon }> {
+  let p = localCache.get(siteId)
+  if (!p) {
+    const [lat, lon] = siteId.slice('custom:'.length).split(',').map(Number)
+    p = new Promise((resolve, reject) => {
+      const w = new Worker(new URL('./local.worker.ts', import.meta.url), { type: 'module' })
+      w.onmessage = (e) => {
+        w.terminate()
+        if (e.data.error) reject(new DataError(e.data.error, siteId))
+        else resolve(e.data)
+      }
+      w.onerror = (e) => {
+        w.terminate()
+        reject(new DataError(e.message || 'calculation failed', siteId))
+      }
+      w.postMessage({ lat, lon, heightM: 2, base: `${new URL(BASE + 'data/', location.href)}` })
+    })
+    p.catch(() => localCache.delete(siteId))
+    localCache.set(siteId, p)
+  }
+  return p
+}
+
 export async function getTimeline(siteId: string, start?: string, end?: string): Promise<Timeline> {
   if (isCustom(siteId)) {
-    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    if (await canComputeLocally()) return (await computeLocal(siteId)).timeline
+    if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     const q = new URLSearchParams({ site: siteId, step: '60', height_m: '2' })
     if (start) q.set('start', start)
     if (end) q.set('end', end)
@@ -118,7 +153,8 @@ export async function getTimeline(siteId: string, start?: string, end?: string):
 
 export async function getHorizon(siteId: string): Promise<Horizon> {
   if (isCustom(siteId)) {
-    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    if (await canComputeLocally()) return (await computeLocal(siteId)).horizon
+    if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     return getJson<Horizon>(`${API_URL}/api/horizon?site=${encodeURIComponent(siteId)}&height_m=2`)
   }
   return getJson<Horizon>(await staticUrl(`horizon/${siteId}.json`))
@@ -150,13 +186,18 @@ export function getTerrain(siteId: string): Promise<Terrain> {
 }
 
 /** URL of the illumination map layer (data/illumination.png), or null when it is not published yet. */
-export async function getIlluminationLayer(): Promise<{ url: string; meta: IlluminationMeta } | null> {
+export async function getIlluminationLayer(): Promise<{ url: string; srcSet?: string; meta: IlluminationMeta } | null> {
   try {
     if (!(await dataFiles()).has('illumination.json')) return null
     const meta = await getJson<IlluminationMeta>(`${BASE}data/illumination.json`)
     // a lighter WebP copy of the same picture when it is up to date (scripts/make_layers.py)
-    const web = (await manifest()).layers.has('illumination.webp')
-    return { url: web ? `${BASE}layers/illumination.webp` : `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
+    const layers = (await manifest()).layers
+    const web = layers.has('illumination.webp')
+    const srcSet =
+      web && layers.has('illumination-1024.webp')
+        ? `${BASE}layers/illumination-1024.webp 1024w, ${BASE}layers/illumination.webp ${meta.width ?? 1772}w`
+        : undefined
+    return { url: web ? `${BASE}layers/illumination.webp` : `${BASE}data/${meta.file ?? 'illumination.png'}`, srcSet, meta }
   } catch {
     return null
   }
@@ -168,5 +209,40 @@ export interface IlluminationMeta {
   x_km: [number, number]
   y_km: [number, number]
   source?: string
+  lat_limit?: number
+  width?: number
   legend?: { percent: number; grey: number }[]
+}
+
+/**
+ * Whole-year summaries of every listed site (index of sites, Accuracy).
+ * Real data: data/summary/compare_1y.json from the backend. Mock: computed from the mock timelines.
+ */
+export async function getYearSummaries(): Promise<Summary[]> {
+  if ((await dataSource()) === 'real' && (await dataFiles()).has('summary/compare_1y.json'))
+    return getJson<Summary[]>(`${BASE}data/summary/compare_1y.json`)
+  const sites = await getSites()
+  const tls = await Promise.all(sites.map((s) => getTimeline(s.id)))
+  return tls.map((tl, i) => {
+    const ms = timesMs(tl)
+    return summarize(tl, { id: sites[i].id, name: sites[i].name }, ms[0], ms[ms.length - 1])
+  })
+}
+
+/** One year at instrument heights 1, 2, 5, 10 m (data/summary/heights.json), or null when not published. */
+export async function getHeights(): Promise<HeightRow[] | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('summary/heights.json')) return null
+  return getJson<HeightRow[]>(`${BASE}data/summary/heights.json`)
+}
+
+/** Apollo 11 year summary for contrast (data/reference/apollo11.json), or null. */
+export async function getApollo(): Promise<(Summary & { site: { name: string; lat?: number } }) | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('reference/apollo11.json')) return null
+  return getJson(`${BASE}data/reference/apollo11.json`)
+}
+
+/** Validation results published by the backend (data/validation.json), or null while it is not there. */
+export async function getValidation(): Promise<Record<string, unknown> | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('validation.json')) return null
+  return getJson<Record<string, unknown>>(`${BASE}data/validation.json`)
 }

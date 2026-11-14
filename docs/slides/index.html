@@ -5,176 +5,175 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SpaceU · Lunar Landing Site Navigator · slides</title>
 <meta name="description" content="Seven slides: Lunar Landing Site Navigator, NASA Space Apps 2026, team SpaceU (Kyiv).">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* DRAFT deck. Edit text freely; keep 7 slides including the title (Space Apps rule). Arrow keys or click to move.
-   Print to PDF: Ctrl+P, landscape, margins none, background graphics on. */
+/* DRAFT deck in the site's "map sheet" style. Edit text freely; keep 7 slides including the title (Space Apps rule).
+   Arrow keys move between slides. Print to PDF: Ctrl+P, landscape, margins none, background graphics on.
+   Pictures: python frontend/scripts/slide_shots.py (screenshots of the live site). */
 :root {
-  --bg: oklch(0.155 0.006 75); --bg-2: oklch(0.2 0.007 75); --line: oklch(0.32 0.008 75);
-  --ink-1: oklch(0.95 0.006 85); --ink-2: oklch(0.8 0.008 85); --ink-3: oklch(0.66 0.01 85);
-  --sun: oklch(0.83 0.15 75); --earth: oklch(0.72 0.12 245); --terrain: oklch(0.36 0.01 75);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color-scheme: dark;
+  --page: #e4e7ea; --sheet: #f7f8f9; --white: #fff; --ink: #0f141b; --ink-2: #2b333d; --ink-3: #46505c;
+  --line: rgba(15,20,27,.18); --sun: #c2470a; --earth: #1d4ed8; --terrain: #b9c0c7;
+  --f-head: 'Barlow Condensed', 'Arial Narrow', sans-serif; --f-body: 'IBM Plex Sans', system-ui, sans-serif; --f-mono: 'IBM Plex Mono', monospace;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: #0b0b0a; color: var(--ink-1); }
+html, body { margin: 0; background: #2b333d; color: var(--ink); font-family: var(--f-body); }
 .deck { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0; }
-.slide {
-  width: 1920px; height: 1080px; background: var(--bg); position: relative; overflow: hidden;
-  padding: 96px 120px; display: flex; flex-direction: column; gap: 40px; transform-origin: top left;
-}
 .wrap { width: calc(1920px * var(--s)); height: calc(1080px * var(--s)); }
-.wrap > .slide { transform: scale(var(--s)); }
-h1 { font-size: 112px; line-height: 1.02; margin: 0; letter-spacing: -0.02em; font-weight: 700; }
-h2 { font-size: 64px; line-height: 1.1; margin: 0; letter-spacing: -0.01em; font-weight: 700; }
-p, li { font-size: 34px; line-height: 1.4; color: var(--ink-2); margin: 0; }
-.kicker { font-size: 26px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--sun); font-weight: 700; }
-.foot { position: absolute; left: 120px; right: 120px; bottom: 48px; display: flex; justify-content: space-between; font-size: 22px; color: var(--ink-3); }
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; flex: 1; min-height: 0; }
-.cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-.shot { width: 100%; border-radius: 16px; border: 2px solid var(--line); display: block; object-fit: cover; object-position: top; background: var(--bg-2); }
-.num { font-size: 92px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.slide { width: 1920px; height: 1080px; background: var(--page); position: relative; overflow: hidden; padding: 72px 110px 90px; display: flex; flex-direction: column; gap: 32px; transform-origin: top left; transform: scale(var(--s)); }
+.stamp { font-family: var(--f-mono); font-size: 24px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1, h2 { font-family: var(--f-head); font-weight: 700; text-transform: uppercase; margin: 0; line-height: .95; }
+h1 { font-size: 132px; }
+h2 { font-size: 92px; }
+p, li { font-size: 32px; line-height: 1.4; color: var(--ink-2); margin: 0; }
+.panel { background: var(--sheet); border: 3px solid var(--ink); }
+.num { font-family: var(--f-head); font-weight: 700; font-size: 104px; line-height: 1; }
+.lab { font-family: var(--f-mono); font-size: 22px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
 .sun { color: var(--sun); } .earth { color: var(--earth); }
-.cell { display: flex; flex-direction: column; gap: 14px; }
-.cell p { font-size: 30px; }
-ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 18px; }
-.todo { color: oklch(0.75 0.17 25); font-weight: 700; }
-.pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
-.pipe .box { background: var(--bg-2); border: 2px solid var(--line); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-.pipe .box b { font-size: 32px; }
-.pipe .box span { font-size: 26px; color: var(--ink-3); line-height: 1.35; }
-.title-art { position: absolute; inset: auto 0 0 0; height: 420px; }
-.link { font-size: 36px; color: var(--ink-1); font-weight: 600; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex: 1; min-height: 0; align-items: start; }
+.three { display: grid; grid-template-columns: repeat(3, 1fr); }
+.three > div { padding: 30px 32px; display: flex; flex-direction: column; gap: 14px; }
+.three > div + div { border-left: 2px solid var(--line); }
+.shot { display: block; width: 100%; border: 3px solid var(--ink); background: var(--white); object-fit: contain; object-position: center top; background: var(--sheet); }
+.foot { position: absolute; left: 110px; right: 110px; bottom: 34px; display: flex; justify-content: space-between; border-top: 3px solid var(--ink); padding-top: 12px; font-family: var(--f-mono); font-size: 20px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.pipe { display: grid; grid-template-columns: repeat(4, 1fr); }
+.pipe > div { padding: 30px; display: flex; flex-direction: column; gap: 14px; }
+.pipe > div + div { border-left: 2px solid var(--line); }
+.pipe b { font-family: var(--f-head); font-size: 46px; text-transform: uppercase; }
+.pipe span { font-size: 27px; color: var(--ink-2); line-height: 1.35; }
+.link { font-family: var(--f-mono); font-size: 34px; font-weight: 600; color: var(--ink); }
+ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 14px; }
+.inv { background: var(--ink); color: var(--white); padding: 34px 40px; }
+.inv p { color: #dfe3e8; }
+.todo { color: #b42318; font-weight: 600; }
 @media print {
   @page { size: 1920px 1080px; margin: 0; }
-  body { background: var(--bg); }
+  html, body { background: var(--page); }
   .deck { padding: 0; gap: 0; }
   .wrap { width: 1920px !important; height: 1080px !important; }
-  .wrap > .slide { transform: none !important; break-after: page; }
+  .slide { transform: none !important; break-after: page; }
 }
 </style>
 </head>
 <body>
-<div class="deck" id="deck">
+<div class="deck">
 
 <!-- 1. Title -->
 <div class="wrap"><section class="slide" aria-label="Title">
-  <span class="kicker">NASA Space Apps 2026 · Lunar Landing Site Navigator</span>
-  <h1>Where to land at the<br>Moon's south pole, and when</h1>
-  <p style="max-width: 1300px">A web tool that compares landing sites and dates by the two things a mission cannot live without: <span class="sun">sunlight</span> for power and a <span class="earth">view of Earth</span> for radio.</p>
-  <p class="link">evge14n.github.io/spaceu-lunar-navigator</p>
-  <p>Team SpaceU, Kyiv: Yevhen · Nazar · Anastasiia U. · Anastasiia Sh.</p>
-  <svg class="title-art" viewBox="0 0 1920 420" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M0 300 L220 250 L380 290 L560 210 L760 280 L980 240 L1180 300 L1400 230 L1620 270 L1920 220 L1920 420 L0 420 Z" fill="oklch(0.24 0.008 75)"/>
-    <circle cx="1560" cy="205" r="16" fill="oklch(0.83 0.15 75)"/>
-    <line x1="0" y1="198" x2="1920" y2="214" stroke="oklch(0.83 0.15 75)" stroke-opacity="0.25" stroke-dasharray="6 10"/>
-  </svg>
+  <span class="stamp">NASA Space Apps 2026 / Lunar Landing Site Navigator / Team SpaceU, Kyiv</span>
+  <div class="cols" style="grid-template-columns: 1.15fr 1fr">
+    <div style="display:flex;flex-direction:column;gap:36px">
+      <h1>Where the Sun never quite sets</h1>
+      <p style="font-size:38px">Pick a landing site and a date at the lunar south pole. See how long it stays in <b class="sun">sunlight</b> for power and when <b class="earth">Earth</b> is in view for a direct radio link, with the real mountains on the horizon.</p>
+      <p class="link">evge14n.github.io/spaceu-lunar-navigator</p>
+      <p class="lab">Yevhen / Nazar / Anastasiia U. / Anastasiia Sh.</p>
+    </div>
+    <img class="shot" src="img/map.jpg" alt="Map of the lunar south pole with ten candidate sites over NASA's average illumination map" style="height:840px">
+  </div>
 </section></div>
 
 <!-- 2. Problem -->
 <div class="wrap"><section class="slide" aria-label="Problem">
-  <span class="kicker">The problem</span>
-  <h2>At the south pole the Sun skims the horizon</h2>
-  <div class="cols-3">
-    <div class="cell"><span class="num sun">1.3°</span><p>Sun elevation at 89.5° S on 14 Nov 2026. It circles the whole horizon every 29.5 days and never climbs high.</p></div>
-    <div class="cell"><span class="num">68 → 89 %</span><p>Guaranteed sunlight at one candidate site when a panel goes from 1 m to 5 m height (Barker et al. 2021).</p></div>
-    <div class="cell"><span class="num earth">−3.6°</span><p>Earth below the horizon from the same point that day: no direct radio, even with no mountains at all.</p></div>
+  <span class="stamp">02 / The problem</span>
+  <h2>At the pole the Sun skims the horizon</h2>
+  <div class="panel three">
+    <div><span class="lab">Sun elevation, 89.5° S, 14 Nov 2026</span><span class="num sun">1.3°</span><p>It circles the whole horizon every 29.5 days and never climbs high.</p></div>
+    <div><span class="lab">Guaranteed sunlight, one site</span><span class="num">68 → 89 %</span><p>When a panel goes from 1 m to 5 m above the ground (Barker et al. 2021).</p></div>
+    <div><span class="lab">Earth, same point and day</span><span class="num earth">−3.6°</span><p>Below the horizon: no direct radio even without any mountains.</p></div>
   </div>
-  <p style="max-width: 1500px">So a hill a few kilometres away, a shift of a few hundred metres, or a landing a few days later changes whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
-  <div class="foot"><span>Sources: JPL Horizons (queried 12 Nov 2026); Barker et al. 2021, doi:10.1016/j.pss.2020.105119</span><span>2 / 7</span></div>
+  <p style="max-width:1500px">A hill kilometres away, a few hundred metres of distance or a few days of delay decide whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
+  <div class="foot"><span>JPL Horizons, queried 12 Nov 2026 / Barker et al. 2021, doi:10.1016/j.pss.2020.105119</span><span>2 / 7</span></div>
 </section></div>
 
 <!-- 3. Solution -->
 <div class="wrap"><section class="slide" aria-label="Solution">
-  <span class="kicker">Our solution</span>
-  <h2>Pick sites and dates, see light and Earth at a glance</h2>
-  <div class="cols">
-    <img class="shot" style="height: 640px" src="img/compare.png" alt="Comparison table of landing sites">
-    <img class="shot" style="height: 640px" src="img/timeline.png" alt="Timeline of Sun and Earth elevation against the terrain horizon">
+  <span class="stamp">03 / What it does</span>
+  <h2>Compare sites and dates at a glance</h2>
+  <div class="cols" style="grid-template-columns: 1.35fr 1fr">
+    <img class="shot" src="img/compare.png" alt="Comparison table of three sites over the darkest 30 days" style="height:600px">
+    <img class="shot" src="img/timeline.png" alt="Sun and Earth elevation against the real horizon over 30 days" style="height:600px;object-position:left top">
   </div>
-  <div class="foot"><span>Compare 2 to 4 sites: sunlit %, longest darkness, Earth visible %, hours to the next sunset and Earthset. Timeline with a time slider.</span><span>3 / 7</span></div>
+  <div class="foot"><span>Sunlit share, longest darkness, Earth in view, hours to sunset and Earthset, sunlight on a panel, what a mast gives</span><span>3 / 7</span></div>
 </section></div>
 
 <!-- 4. How it works -->
 <div class="wrap"><section class="slide" aria-label="How it works">
-  <span class="kicker">How it works</span>
-  <h2>Real terrain, real ephemerides, computed in advance</h2>
-  <div class="pipe">
-    <div class="box"><b class="sun">Sun and Earth</b><span>NAIF SPICE kernels (de440s, Moon PA), frame MOON_ME, light time and aberration, parallax of the site.</span></div>
-    <div class="box"><b>Horizon mask</b><span>LOLA polar DEM: terrain elevation angle in 720 directions, rays out to 150 km, Moon curvature included.</span></div>
-    <div class="box"><b>Metrics</b><span>Visible part of the solar disc, lit %, longest dark, Earth windows, next sunset and Earthset, hourly for a year.</span></div>
-    <div class="box"><b class="earth">Website</b><span>Static JSON on GitHub Pages: works with no server. Any period is summarised in the browser.</span></div>
+  <span class="stamp">04 / How it works</span>
+  <h2>NASA data, computed in advance</h2>
+  <div class="panel pipe">
+    <div><b class="sun">Sun and Earth</b><span>NAIF SPICE kernels (DE440, Moon orientation), frame MOON_ME, light time and aberration, parallax of the site.</span></div>
+    <div><b>Horizon</b><span>LOLA terrain 5 m, 20 m and 80 m: elevation angle in 720 directions out to 150 km, curvature of the Moon included.</span></div>
+    <div><b>Metrics</b><span>Visible part of the solar disc, sunlit share, longest darkness, Earth windows, next sunset and Earthset, every hour for a year.</span></div>
+    <div><b class="earth">Website</b><span>Static files on GitHub Pages, so it never sleeps. Any period is summarised in the browser.</span></div>
   </div>
-  <p style="max-width: 1600px">Same rule as NASA illumination maps: the Sun counts as visible while any part of its disc is above the terrain.</p>
-  <div class="foot"><span>Python (spiceypy, numpy, numba), FastAPI · React, TypeScript, three.js</span><span>4 / 7</span></div>
+  <p style="max-width:1600px">Same rule as NASA's illumination maps: the Sun counts as visible while any part of its disc is above the terrain.</p>
+  <div class="foot"><span>Python: spiceypy, numpy, numba, rasterio, FastAPI / React, TypeScript, three.js</span><span>4 / 7</span></div>
 </section></div>
 
 <!-- 5. Validation -->
 <div class="wrap"><section class="slide" aria-label="Validation">
-  <span class="kicker">Can you trust the numbers?</span>
-  <h2>Checked against JPL Horizons and LOLA maps</h2>
-  <div class="cols-3">
-    <div class="cell"><span class="num sun">0.000001°</span><p>Largest difference in Sun position against JPL Horizons over 1 210 samples (5 points, one year).</p></div>
-    <div class="cell"><span class="num earth">0.000027°</span><p>Largest difference in Earth position, same test. Target was 0.01°.</p></div>
-    <div class="cell"><span class="num">TBD</span><p class="todo">Nazar: lit % against the LOLA average illumination map for 3 to 5 points; zero light inside a permanently shadowed crater.</p></div>
+  <span class="stamp">05 / Can you trust the numbers?</span>
+  <h2>Checked against NASA sources</h2>
+  <div class="cols" style="grid-template-columns: 1fr 1.2fr">
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sun and Earth vs JPL Horizons, 1 210 positions</span><br><span class="num" style="font-size:88px">0.00003°</span><p>largest difference, target was 0.01°</p></div>
+      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sunlit share vs NASA illumination map, 480 pixels</span><br><span class="num" style="font-size:88px">0.26 pp</span><p>median difference, correlation 0.996 (computed the way the map was)</p></div>
+      <div style="padding:28px 32px"><span class="lab">Shadowed craters / website vs backend</span><p>149 of 150 permanently shadowed pixels never lit; the browser's own numbers match the server's for all 10 sites (automatic test).</p></div>
+    </div>
+    <img class="shot" src="img/accuracy.png" alt="Sunlit share site by site, ours against NASA's map" style="height:700px">
   </div>
-  <div class="foot"><span>Details: docs/VALIDATION.md in the repository</span><span>5 / 7</span></div>
+  <div class="foot"><span>Details: Accuracy sheet on the site and docs/VALIDATION.md</span><span>5 / 7</span></div>
 </section></div>
 
 <!-- 6. Experience -->
-<div class="wrap"><section class="slide" aria-label="User experience">
-  <span class="kicker">For planners, students and everyone</span>
-  <h2>Stand at the site and watch the sky move</h2>
-  <div class="cols">
-    <img class="shot" style="height: 600px" src="img/view3d.png" alt="3D view of the terrain with the Sun low on the horizon">
-    <div class="cell" style="gap: 28px">
-      <img class="shot" style="height: 300px" src="img/map.png" alt="Map of the south pole with landing sites">
+<div class="wrap"><section class="slide" aria-label="Experience">
+  <span class="stamp">06 / For planners, students and everyone</span>
+  <h2>Stand on the site and watch the sky</h2>
+  <div class="cols" style="grid-template-columns: 1.5fr 1fr">
+    <img class="shot" src="img/horizon.png" alt="Eye-level 3D view with the Sun 1.6 degrees above real hills and an elevation scale" style="height:640px">
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <img class="shot" src="img/pano.png" alt="The whole horizon unrolled with the paths of the Sun and the Earth" style="height:300px">
       <ul>
-        <li>3D terrain around the site, Sun and Earth in true directions and sizes, driven by the time slider.</li>
-        <li>"Why?" screen explains polar light in five pictures for school students.</li>
+        <li>3D view at eye level from LOLA terrain, Sun and Earth in true directions and sizes, an elevation scale on the frame.</li>
+        <li>"Why" sheet: five ideas in pictures for school students.</li>
       </ul>
     </div>
   </div>
-  <div class="foot"><span>Works on a phone and a laptop, keyboard accessible</span><span>6 / 7</span></div>
+  <div class="foot"><span>Works on a phone and a laptop, keyboard accessible, Lighthouse accessibility 100</span><span>6 / 7</span></div>
 </section></div>
 
-<!-- 7. Data and next -->
+<!-- 7. NASA data and next -->
 <div class="wrap"><section class="slide" aria-label="NASA data and next steps">
-  <span class="kicker">NASA data at the core</span>
-  <h2>What we used and what comes next</h2>
+  <span class="stamp">07 / NASA data at the core</span>
+  <h2>What we used, what comes next</h2>
   <div class="cols">
-    <ul>
-      <li>NAIF SPICE generic kernels (NASA/JPL)</li>
-      <li>LOLA polar DEMs, LRO (PDS Geosciences Node)</li>
-      <li>LOLA 5 m site models (PGDA, Barker et al. 2021)</li>
-      <li>LOLA illumination maps (PGDA, Mazarico et al. 2011)</li>
-      <li>JPL Horizons as the reference in tests</li>
-    </ul>
-    <ul>
-      <li>Panel and antenna height as a slider (1, 5, 10 m)</li>
-      <li>Solar power in watts for a given panel</li>
-      <li>More sites from published Artemis candidate regions</li>
-      <li>Relay satellite windows when Earth is hidden</li>
-    </ul>
+    <div class="panel" style="padding:32px 40px"><span class="lab">NASA data</span>
+      <ul style="margin-top:16px">
+        <li>NAIF SPICE generic kernels (NASA/JPL)</li>
+        <li>LOLA polar elevation models, LRO (PDS Geosciences)</li>
+        <li>LOLA 5 m site models (PGDA, Barker et al. 2021)</li>
+        <li>LOLA illumination maps (PGDA, Mazarico et al. 2011)</li>
+        <li>JPL Horizons as the test reference</li>
+      </ul>
+    </div>
+    <div class="inv"><span class="lab" style="color:#c9ced4">Next</span>
+      <ul style="margin-top:16px;color:#dfe3e8">
+        <li style="color:#dfe3e8">Done: any point on the map computed in the browser (240 m terrain)</li>
+        <li style="color:#dfe3e8">Relay satellite windows when Earth is hidden</li>
+        <li style="color:#dfe3e8">More sites from published Artemis regions</li>
+      </ul>
+    </div>
   </div>
-  <p class="link">evge14n.github.io/spaceu-lunar-navigator · github.com/Evge14n/spaceu-lunar-navigator</p>
+  <p class="link" style="font-size:28px">evge14n.github.io/spaceu-lunar-navigator · github.com/Evge14n/spaceu-lunar-navigator</p>
   <div class="foot"><span>Open source, Apache-2.0</span><span>7 / 7</span></div>
 </section></div>
 
 </div>
 <script>
-// Scale slides to the window; arrow keys / PageUp / PageDown / click scroll between slides.
 const wraps = [...document.querySelectorAll('.wrap')]
-function fit() {
-  const s = Math.min((window.innerWidth - 32) / 1920, 1)
-  document.documentElement.style.setProperty('--s', s)
-}
-fit()
-addEventListener('resize', fit)
+function fit() { document.documentElement.style.setProperty('--s', Math.min((innerWidth - 32) / 1920, 1)) }
+fit(); addEventListener('resize', fit)
 let cur = 0
-function go(i) {
-  cur = Math.max(0, Math.min(wraps.length - 1, i))
-  wraps[cur].scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
+function go(i) { cur = Math.max(0, Math.min(wraps.length - 1, i)); wraps[cur].scrollIntoView({ behavior: 'smooth', block: 'center' }) }
 addEventListener('keydown', (e) => {
   if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(cur + 1) }
   if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); go(cur - 1) }

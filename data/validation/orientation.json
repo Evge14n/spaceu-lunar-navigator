@@ -1,0 +1,75 @@
+{
+ "what": "RMS height difference between the 20 m polar model as we read it and the georeferenced 5 m site model averaged to 20 m, and the same for the seven other ways to orient the raster",
+ "rows": [
+  {
+   "id": "site01",
+   "model": "Site01",
+   "rms_m": 1.3,
+   "other_min_rms_m": 425,
+   "other_max_rms_m": 2249
+  },
+  {
+   "id": "site04",
+   "model": "Site04",
+   "rms_m": 2.3,
+   "other_min_rms_m": 814,
+   "other_max_rms_m": 2500
+  },
+  {
+   "id": "site06",
+   "model": "Site06",
+   "rms_m": 2.0,
+   "other_min_rms_m": 4846,
+   "other_max_rms_m": 9345
+  },
+  {
+   "id": "site07",
+   "model": "Site07",
+   "rms_m": 1.3,
+   "other_min_rms_m": 917,
+   "other_max_rms_m": 2698
+  },
+  {
+   "id": "site11",
+   "model": "Site11",
+   "rms_m": 1.3,
+   "other_min_rms_m": 1282,
+   "other_max_rms_m": 2555
+  },
+  {
+   "id": "site20",
+   "model": "Site20",
+   "rms_m": 1.5,
+   "other_min_rms_m": 3389,
+   "other_max_rms_m": 8882
+  },
+  {
+   "id": "site23",
+   "model": "Site23",
+   "rms_m": 1.7,
+   "other_min_rms_m": 747,
+   "other_max_rms_m": 6312
+  },
+  {
+   "id": "haworth",
+   "model": "Haworth",
+   "rms_m": 1.4,
+   "other_min_rms_m": 1073,
+   "other_max_rms_m": 3191
+  },
+  {
+   "id": "shoemaker",
+   "model": "Shoemaker",
+   "rms_m": 1.2,
+   "other_min_rms_m": 699,
+   "other_max_rms_m": 2241
+  },
+  {
+   "id": "dm2",
+   "model": "DM2",
+   "rms_m": 2.3,
+   "other_min_rms_m": 623,
+   "other_max_rms_m": 4384
+  }
+ ]
+}

@@ -6,7 +6,7 @@ import numpy as np
 import pyproj
 import pytest
 
-from backend import config, ephem, terrain
+from backend import config, ephem, terrain, validate
 from backend.tests.conftest import synthetic_grid
 
 R = config.MOON_RADIUS_M
@@ -123,23 +123,10 @@ def test_axis_orientation_of_the_raw_ldem(site):
     The 5 m site models are georeferenced GeoTIFFs (independent of our reader), so the
     raw 20 m LDEM must agree with them only in the correct orientation.
     """
-    ldem = terrain.load_ldem("ldem_85s_20m")
-    tile = terrain.load_geotiff(terrain.site_tiff_path(site)).block_mean(4)
-    rows, cols = tile.data.shape
-    x, y = np.meshgrid(tile.x0 + tile.step * np.arange(cols), tile.y0 - tile.step * np.arange(rows))
-    variants = {
-        "as read": (x, y),
-        "flip y": (x, -y),
-        "flip x": (-x, y),
-        "rotate 180": (-x, -y),
-        "transpose": (y, x),
-        "anti-transpose": (-y, -x),
-        "rotate 90": (y, -x),
-        "rotate 270": (-y, x),
-    }
-    rms = {k: float(np.sqrt(np.nanmean((ldem.sample(*v) - tile.data) ** 2))) for k, v in variants.items()}
-    assert rms["as read"] < 5.0  # measured: 1.2 .. 2.4 m
-    assert min(v for k, v in rms.items() if k != "as read") > 300.0  # measured: 420 .. 6300 m
+    rms = validate.orientation_rms(site)
+    assert len(rms) == 8
+    assert rms["as read"] < 5.0  # measured: data/validation/orientation.json
+    assert min(v for k, v in rms.items() if k != "as read") > 300.0
 
 
 @pytest.mark.raw

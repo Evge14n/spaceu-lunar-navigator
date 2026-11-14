@@ -1,0 +1,35 @@
+{
+ "file": "ephem/year.bin",
+ "dtype": "float32, little-endian",
+ "n": 8761,
+ "stride": 6,
+ "record": [
+  "sun_x",
+  "sun_y",
+  "sun_z",
+  "earth_x_km",
+  "earth_y_km",
+  "earth_z_km"
+ ],
+ "start": "2026-11-14T00:00:00Z",
+ "end": "2027-11-14T00:00:00Z",
+ "step_h": 1.0,
+ "sun_distance": {
+  "file": "ephem/sun_distance.bin",
+  "dtype": "float32, little-endian",
+  "n": 8761,
+  "unit": "km, from the centre of the Moon"
+ },
+ "paths": "file names are relative to data/",
+ "frame": "MOON_ME (x towards the mean Earth direction, z the north pole), origin at the centre of the Moon",
+ "content": "sample i is the moment start + i * step_h. sun_x..z: unit vector to the Sun; earth_x..z_km: position of the centre of the Earth. Apparent positions (light time and stellar aberration, LT+S), as in backend/ephem.py",
+ "constants": {
+  "moon_radius_km": 1737.4,
+  "sun_radius_km": 695700.0,
+  "earth_radius_km": 6378.137,
+  "au_km": 149597870.7,
+  "solar_constant_w_m2": 1361.0
+ },
+ "source": "NAIF SPICE kernels de440s.bsp, moon_pa_de440_200625.bpc, moon_de440_250416.tf, pck00011.tpc, naif0012.tls",
+ "algorithm": "docs/BROWSER_COMPUTE.md"
+}

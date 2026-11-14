@@ -1,15 +1,15 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { isCustom, useDataSource, useSites } from './api'
-import { routes } from './routes'
+import { aliases, routes } from './routes'
 import { useAppState } from './state'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Notice } from './components/Notice'
 
 export default function App() {
-  const { path, siteId, compareIds, compareFromUrl, setSite, setCompare, href } = useAppState()
+  const { path, siteId, compareIds, compareFromUrl, setSite, setCompare, href, from, to } = useAppState()
   const sites = useSites()
   const source = useDataSource()
-  const route = routes.find((r) => r.path === path) ?? routes[0]
+  const route = routes.find((r) => r.path === (aliases[path] ?? path)) ?? routes[0]
   const Page = route.component
 
   // Pick sensible defaults once, when the site list first arrives.
@@ -26,8 +26,22 @@ export default function App() {
   }, [sites.data, siteId, compareIds, compareFromUrl, setSite, setCompare])
 
   useEffect(() => {
-    document.title = `${route.label} · Lunar Landing Site Navigator`
-  }, [route.label])
+    document.title = `${route.no} ${route.label} · Lunar Landing Site Navigator`
+  }, [route.no, route.label])
+
+  const nav = (cls: string, short: boolean) =>
+    routes.map((r) => (
+      <a key={r.path} className={cls} href={href(r.path)} aria-current={r === route ? 'page' : undefined}>
+        {short ? (
+          <>
+            <b>{r.no}</b>
+            {r.short}
+          </>
+        ) : (
+          `${r.no} ${r.label}`
+        )}
+      </a>
+    ))
 
   return (
     <div className="shell">
@@ -35,36 +49,27 @@ export default function App() {
         Skip to content
       </a>
       <header className="top">
-        <a className="brand" href={href('/map')}>
-          <svg aria-hidden="true" viewBox="0 0 32 32" width="22" height="22">
-            <circle cx="16" cy="16" r="11" fill="var(--regolith-3)" />
-            <path d="M5 19 Q16 13 27 19" stroke="var(--sun)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-          </svg>
-          <span>
-            Lunar Landing Site Navigator <small>SpaceU</small>
+        <div className="top-in">
+          <a className="brand" href={href('/map')} aria-label="Lunar Navigator, map">
+            <svg aria-hidden="true" width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="var(--ink)" strokeWidth="2">
+              <circle cx="17" cy="17" r="12" />
+              <path d="M17 1v8M17 25v8M1 17h8M25 17h8" />
+              <circle cx="17" cy="17" r="2.5" fill="var(--sun)" stroke="none" />
+            </svg>
+            <span>Lunar Navigator</span>
+          </a>
+          <nav className="nav" aria-label="Sheets">
+            {nav('', false)}
+          </nav>
+          <span className="team">
+            Team SpaceU / NASA Space Apps 2026{source.data === 'mock' ? ' / sample data' : ''}
           </span>
-        </a>
-        <nav aria-label="Screens">
-          <ul>
-            {routes.map((r) => (
-              <li key={r.path}>
-                <a href={href(r.path)} aria-current={r === route ? 'page' : undefined}>
-                  {r.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        {source.data === 'mock' && (
-          <span className="badge" title="Sun and Earth positions are real (JPL Horizons); terrain and sites are synthetic until the backend publishes data/">
-            Mock data
-          </span>
-        )}
+        </div>
       </header>
       <main id="main" tabIndex={-1}>
         {sites.error ? (
           <Notice tone="error" title="Could not load the site list">
-            {sites.error.message}
+            {sites.error.message}. Check the connection and reload the page.
           </Notice>
         ) : (
           <ErrorBoundary resetKey={`${path}|${siteId}`}>
@@ -75,11 +80,15 @@ export default function App() {
         )}
       </main>
       <footer className="foot">
+        <span>Ephemeris: NAIF SPICE DE440 / Terrain: LRO LOLA / Checked against JPL Horizons</span>
         <span>
-          Sun and Earth: NAIF SPICE, checked against JPL Horizons. Terrain: LRO LOLA. Times in UTC.
+          Period {new Date(from).toISOString().slice(0, 10)} to {new Date(to).toISOString().slice(0, 10)} UTC /{' '}
+          <a href="https://github.com/Evge14n/spaceu-lunar-navigator">Source</a>
         </span>
-        <a href="https://github.com/Evge14n/spaceu-lunar-navigator">Source on GitHub</a>
       </footer>
+      <nav className="tabbar" aria-label="Sheets">
+        {nav('', true)}
+      </nav>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -14,7 +14,7 @@ import {
   skyAt,
   summarize,
 } from './compute'
-import type { Timeline } from './types'
+import type { Summary, Timeline } from './types'
 
 const repo = resolve(import.meta.dirname, '../../..')
 const readJson = <T,>(p: string): T => JSON.parse(readFileSync(resolve(repo, p), 'utf8')) as T
@@ -190,6 +190,24 @@ describe('frontend mock files keep the API shapes', () => {
       const tm = readJson<{ n: number }>(`frontend/public/mock/terrain/${s.id}.json`)
       const bin = readFileSync(resolve(repo, `frontend/public/mock/terrain/${s.id}.bin`))
       expect(bin.byteLength).toBe(tm.n * tm.n * 4)
+    }
+  })
+})
+
+describe('browser summary matches the backend summary on real data', () => {
+  const sumPath = resolve(repo, 'data/summary/compare_1y.json')
+  it.skipIf(!existsSync(sumPath))('lit %, Earth %, longest darkness, highest Sun and panel sunlight for every site', () => {
+    const ref = readJson<Summary[]>('data/summary/compare_1y.json')
+    for (const r of ref) {
+      const tl = readJson<Timeline>(`data/timeline/${r.site.id}.json`)
+      const s = summarize(tl, r.site, Date.parse(r.period.start), Date.parse(r.period.end))
+      expect(s.sun.lit_percent, r.site.id).toBeCloseTo(r.sun.lit_percent, 0)
+      expect(s.earth.visible_percent, r.site.id).toBeCloseTo(r.earth.visible_percent, 0)
+      expect(s.sun.max_el, r.site.id).toBeCloseTo(r.sun.max_el, 2)
+      // backend refines events to 30 s, the browser works on the 1 h samples
+      expect(Math.abs(s.sun.longest_dark_h - r.sun.longest_dark_h), r.site.id).toBeLessThanOrEqual(2)
+      if (r.sun.mean_irradiance_w_m2)
+        expect(Math.abs(s.sun.mean_irradiance_w_m2! / r.sun.mean_irradiance_w_m2 - 1), r.site.id).toBeLessThan(0.04)
     }
   })
 })

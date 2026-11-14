@@ -2,6 +2,7 @@
 
     python -m backend.fetch_data kernels     # 46 MB of SPICE kernels (needed by everything)
     python -m backend.fetch_data rasters     # 1.6 GB of LOLA rasters (needed only to recompute data/)
+    python -m backend.fetch_data validation  # 465 MB: the 60 m LOLA model used by backend.validate
 
 Files that already exist with the expected size are skipped.
 """
@@ -59,6 +60,13 @@ RASTER_URLS = {
 }
 
 
+# Only for `python -m backend.validate`: the 60 m model closest to the one of the NASA maps.
+VALIDATION_URLS = {
+    "ldem_75s_60m.img": PDS + "ldem_75s_60m.img",
+    "ldem_75s_60m.lbl": PDS + "ldem_75s_60m.lbl",
+}
+
+
 def download(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     with requests.get(url, stream=True, timeout=120) as resp:
@@ -80,8 +88,8 @@ def main(argv: list[str]) -> int:
     if what == "kernels":
         for name, url in KERNEL_URLS.items():
             download(url, config.KERNEL_DIR / name)
-    elif what == "rasters":
-        for name, url in RASTER_URLS.items():
+    elif what in ("rasters", "validation"):
+        for name, url in (RASTER_URLS if what == "rasters" else VALIDATION_URLS).items():
             download(url, config.RAW_DIR / name)
     else:
         print(__doc__)

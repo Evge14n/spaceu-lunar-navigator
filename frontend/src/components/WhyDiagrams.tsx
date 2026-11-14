@@ -1,87 +1,73 @@
-// Simple schematic pictures for the "Why?" screen. Not to scale; labels say so where it matters.
+// Schematic pictures for the "Why" sheet, drawn in ink like the rest of the map sheet. Not to scale.
 
 import type { WhyItem } from '../content/why'
 
-const W = 320
-const H = 160
+const W = 560
+const H = 190
 
 function Skim() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="The Sun moves around the horizon in a low circle">
-      <ellipse cx="160" cy="112" rx="130" ry="26" className="d-orbit" />
-      <line x1="10" y1="112" x2="310" y2="112" className="d-horizon" />
-      <text x="14" y="130" className="d-label">horizon</text>
-      <circle cx="268" cy="104" r="9" className="d-sun" />
-      <path d="M190 138 a130 26 0 0 0 78 -32" className="d-arrow" markerEnd="url(#ah)" />
-      <circle cx="160" cy="112" r="4" className="d-you" />
-      <text x="146" y="100" className="d-label">you</text>
-      <text x="310" y="30" textAnchor="end" className="d-label">Sun stays 1° to 2° up,</text>
-      <text x="310" y="46" textAnchor="end" className="d-label">one full circle in 29.5 days</text>
-      <defs>
-        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0 0 L10 5 L0 10z" className="d-arrowhead" />
-        </marker>
-      </defs>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Standing at the pole, the Sun stays one to two degrees above the horizon and circles it once in 29.5 days">
+      <line x1="20" y1="120" x2="540" y2="120" className="d-line" />
+      <line x1="280" y1="120" x2="280" y2="78" className="d-line" />
+      <circle cx="280" cy="74" r="6" fill="var(--ink)" />
+      <text x="280" y="56" textAnchor="middle" className="d-label">You, at the pole</text>
+      <circle cx="470" cy="96" r="12" className="d-sun" />
+      <text x="490" y="84" className="d-label">1° to 2° up</text>
+      <text x="20" y="144" className="d-label">Horizon</text>
+      <text x="280" y="168" textAnchor="middle" className="d-label">One full circle in 29.5 days</text>
     </svg>
   )
 }
 
 function Mountains() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Low sunlight reaches a peak but not a crater floor">
-      <path d="M0 140 L60 70 L110 128 L150 140 L200 140 L240 90 L320 140 Z" className="d-ground" />
-      <circle cx="306" cy="58" r="10" className="d-sun" />
-      <line x1="296" y1="62" x2="62" y2="70" className="d-ray" />
-      <line x1="296" y1="62" x2="240" y2="88" className="d-ray" />
-      <text x="34" y="60" className="d-label">peak: lit</text>
-      <text x="140" y="155" className="d-label">crater floor: always dark</text>
-      <path d="M110 128 L150 140 L200 140 L232 98 Z" className="d-shadow" />
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Low sunlight reaches a peak but a crater floor between hills stays dark">
+      <path d="M20 170 L150 60 L265 160 L340 160 L430 90 L540 170 Z" className="d-ground" />
+      <path d="M265 160 L340 160 L362 145 Z" className="d-shadow" />
+      <circle cx="520" cy="40" r="11" className="d-sun" />
+      <line x1="510" y1="44" x2="156" y2="62" className="d-ray" />
+      <text x="110" y="44" className="d-label">Peak: lit</text>
+      <text x="300" y="186" textAnchor="middle" className="d-label">Crater floor: always dark</text>
     </svg>
   )
 }
 
 function Mast() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="A panel on a 5 metre mast sees over a ridge that blocks a 1 metre panel">
-      <path d="M0 140 L320 140 L320 160 L0 160 Z" className="d-ground" />
-      <path d="M170 140 L215 112 L260 140 Z" className="d-ground" />
-      <circle cx="306" cy="70" r="10" className="d-sun" />
-      <line x1="40" y1="140" x2="40" y2="78" className="d-mast" />
-      <rect x="34" y="70" width="12" height="10" className="d-panel" />
-      <rect x="64" y="124" width="12" height="10" className="d-panel" />
-      <line x1="46" y1="75" x2="296" y2="70" className="d-ray" />
-      <line x1="76" y1="129" x2="214" y2="113" className="d-ray-blocked" />
-      <text x="50" y="66" className="d-label">5 m: 89 % lit</text>
-      <text x="82" y="150" className="d-label">1 m: 68 % lit</text>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Guaranteed sunlight 68 percent for a panel 1 metre up and 89.3 percent for a panel 5 metres up">
+      <text x="20" y="44" className="d-num">68.0 %</text>
+      <rect x="20" y="62" width="250" height="68" fill="var(--terrain)" stroke="var(--ink)" strokeWidth="1.5" />
+      <text x="20" y="156" className="d-label">Whole site area, 1 m up</text>
+      <text x="300" y="26" className="d-num">89.3 %</text>
+      <rect x="300" y="44" width="250" height="86" fill="var(--white)" stroke="var(--ink)" strokeWidth="1.5" />
+      <text x="300" y="156" className="d-label">Whole site area, 5 m up</text>
     </svg>
   )
 }
 
 function Earth() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="The Earth wobbles up and down across the horizon">
-      <line x1="10" y1="100" x2="310" y2="100" className="d-horizon" />
-      <path d="M10 100 L60 86 L100 100 Z" className="d-ground" />
-      <path d="M30 96 C 90 40, 140 40, 170 92 S 260 150, 300 70" className="d-path" />
-      <circle cx="120" cy="56" r="11" className="d-earth" />
-      <circle cx="232" cy="122" r="11" className="d-earth dim" />
-      <text x="96" y="30" className="d-label">in view: direct radio</text>
-      <text x="312" y="154" textAnchor="end" className="d-label">below terrain: relay needed</text>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="The Earth drifts above and below the hills on the horizon">
+      <path d="M30 110 L140 104 L250 116 L360 102 L460 114 L540 108 L540 186 L30 186 Z" className="d-ground" />
+      <circle cx="380" cy="58" r="15" className="d-earth" />
+      <text x="360" y="54" textAnchor="end" className="d-label">In view: direct radio link</text>
+      <circle cx="300" cy="160" r="14" className="d-earth dim" />
+      <text x="56" y="166" className="d-label">Hidden: a relay is needed</text>
     </svg>
   )
 }
 
 function Panel() {
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="A vertical panel faces the low Sun, a flat panel does not">
-      <line x1="10" y1="130" x2="310" y2="130" className="d-horizon" />
-      <circle cx="300" cy="120" r="9" className="d-sun" />
-      <rect x="60" y="80" width="8" height="50" className="d-panel" />
-      <rect x="150" y="124" width="60" height="6" className="d-panel" />
-      <line x1="290" y1="121" x2="70" y2="105" className="d-ray" />
-      <line x1="290" y1="122" x2="212" y2="125" className="d-ray" />
-      <text x="30" y="70" className="d-label">upright: ~100 %</text>
-      <text x="140" y="112" className="d-label">flat: 2.3 %</text>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Sunlight arrives sideways: a flat panel catches 2.3 percent, an upright one nearly all">
+      <line x1="20" y1="150" x2="540" y2="150" className="d-line" />
+      <circle cx="40" cy="140" r="9" className="d-sun" />
+      <line x1="52" y1="141" x2="430" y2="132" className="d-ray" />
+      <rect x="150" y="144" width="110" height="6" className="d-panel" />
+      <rect x="432" y="40" width="7" height="110" className="d-panel" />
+      <text x="205" y="174" textAnchor="middle" className="d-label">Flat: 2.3 %</text>
+      <text x="436" y="174" textAnchor="middle" className="d-label">Upright: nearly 100 %</text>
     </svg>
   )
 }

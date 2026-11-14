@@ -8,6 +8,8 @@ import type { Sky, Summary, Timeline, Window } from './types'
 
 export const HOUR = 3_600_000
 export const SUN_RADIUS_DEG = 0.266
+/** Solar constant at 1 AU, W/m2. The Earth-Moon distance to the Sun changes it by about 3 % over a year. */
+export const SOLAR_CONSTANT = 1361
 const EARTH_RADIUS_KM = 6371
 const DEFAULT_EARTH_DIST_KM = 384_400
 
@@ -161,9 +163,11 @@ export function summarize(
     Math.min(span, rs.filter((r) => r.value === v).reduce((m, r) => Math.max(m, (r.i1 - r.i0 + 1) * step), 0))
   let lit = 0
   let seen = 0
+  let frac = 0
   let maxEl = -90
   for (let i = i0; i <= i1; i++) {
     if (sunUp[i]) lit++
+    frac += tl.sun.visible_fraction[i]
     if (earthUp[i]) seen++
     if (tl.sun.el[i] > maxEl) maxEl = tl.sun.el[i]
   }
@@ -182,6 +186,8 @@ export function summarize(
       max_el: r3(maxEl),
       next_sunset: sunset === null ? null : iso(sunset),
       hours_to_sunset: sunset === null ? null : r1((sunset - startMs) / HOUR),
+      mean_irradiance_w_m2: r1((SOLAR_CONSTANT * frac) / n),
+      energy_kwh_m2: r1((SOLAR_CONSTANT * frac * step) / 1000),
     },
     earth: {
       visible_percent: r1((seen / n) * 100),
