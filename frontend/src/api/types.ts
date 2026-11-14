@@ -9,6 +9,12 @@ export interface Site {
   source: string
   has_5m: boolean
   mock?: boolean
+  /** polar stereographic metres (x towards 90 E, y towards 0 E), from the backend */
+  x_m?: number
+  y_m?: number
+  /** NASA LOLA 18.6-year average illumination at this point, % */
+  nasa_avg_illumination_percent?: number
+  point_rule?: string
 }
 
 export interface Timeline {
