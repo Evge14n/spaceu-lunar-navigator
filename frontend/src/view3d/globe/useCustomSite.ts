@@ -8,6 +8,7 @@ import type { Horizon, Terrain, TerrainMeta, Timeline } from '../../api'
 import type { HeightSourceId } from './heights'
 import { MASK_STEP_DEG } from './mask'
 import { tileSamples } from './tile'
+import { modelGrid, modelGridMessage } from './modelGrid'
 import { dataPath, parseCustomId } from './route'
 
 export interface CoarseInfo {
@@ -95,7 +96,9 @@ function compute(siteId: string, lat: number, lon: number, needSky: boolean, n: 
       w.terminate()
       reject(new Error(e.message || 'the point could not be computed'))
     }
-    w.postMessage({ lat, lon, heightM: EYE_M, n, dataBase: `${BASE}data/`, siteBase: BASE, needSky })
+    // the globe sheet may already have read heights off the model: send a copy with the request
+    const modelGrid = modelGridMessage()
+    w.postMessage({ lat, lon, heightM: EYE_M, n, dataBase: `${BASE}data/`, siteBase: BASE, needSky, modelGrid }, modelGrid ? [modelGrid.data.buffer] : [])
   })
 }
 
@@ -119,7 +122,7 @@ export function useCustomSite(siteId: string | null): CustomSiteState {
     }
     const needSky = dataPath(siteId) === 'browser-globe'
     const n = tileSamples(typeof window !== 'undefined' && window.innerWidth < 700)
-    const key = `${siteId}|${n}|${needSky}`
+    const key = `${siteId}|${n}|${needSky}|${modelGrid() ? 'model' : 'published'}`
     let live = true
     setState({ data: null, error: null, loading: true })
     let p = cache.get(key)

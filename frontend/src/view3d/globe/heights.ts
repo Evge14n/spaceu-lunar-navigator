@@ -5,6 +5,8 @@
 //              The same file the rest of the site already computes custom points from.
 //   global   - an optional whole-Moon height grid at public/moon/height.json (format below).
 //              Coarse (kilometres per pixel), but real relief anywhere on the Moon.
+//   model    - the same thing read out of the globe model, when it is a displaced mesh and the
+//              globe sheet has already sampled it (modelHeights.ts). Coarser still.
 //   sphere   - nothing is published for this point: a smooth sphere of 1737.4 km.
 //              This is the "terrain": false case of docs/API.md, not an invention.
 //
@@ -14,7 +16,7 @@
 import { demAt, stereo, type Dem } from '../../api/local'
 import { MOON_RADIUS_KM } from './frame'
 
-export type HeightSourceId = 'lola240' | 'global' | 'sphere'
+export type HeightSourceId = 'lola240' | 'global' | 'model' | 'sphere'
 
 export interface HeightField {
   id: HeightSourceId
@@ -62,13 +64,13 @@ export interface EquirectGrid {
   label: string
 }
 
-export function equirectField(g: EquirectGrid): HeightField {
+export function equirectField(g: EquirectGrid, id: HeightSourceId = 'global'): HeightField {
   const dLat = (g.northLat - g.southLat) / g.height
   const dLon = 360 / g.width
   const pixelM = (dLat * Math.PI * MOON_RADIUS_KM * 1000) / 180
   const at = (r: number, c: number) => g.data[r * g.width + ((c % g.width) + g.width) % g.width] * g.scale + g.offset
   return {
-    id: 'global',
+    id,
     label: g.label,
     pixelM,
     heightAt(lat, lon) {
@@ -105,6 +107,16 @@ export interface GlobalHeightMeta {
   south_lat?: number
   west_lon?: number
   source?: string
+}
+
+/** Is the file really there? A dev server answers index.html for anything, so check the type. */
+export async function fileExists(url: string): Promise<boolean> {
+  try {
+    const r = await fetch(url, { method: 'HEAD' })
+    return r.ok && !(r.headers.get('content-type') ?? '').includes('text/html')
+  } catch {
+    return false
+  }
 }
 
 async function fetchBuffer(url: string): Promise<ArrayBuffer> {
@@ -174,10 +186,17 @@ export async function loadGlobalField(siteBase: string): Promise<HeightField | n
  * The best field available for this point: the real polar model inside its grid, a published
  * whole-Moon grid outside it, a smooth sphere when neither is there.
  */
-export async function bestField(latDeg: number, lonDeg: number, dataBase: string, siteBase: string): Promise<HeightField> {
+export async function bestField(
+  latDeg: number,
+  lonDeg: number,
+  dataBase: string,
+  siteBase: string,
+  fromModel?: EquirectGrid | null,
+): Promise<HeightField> {
   if (latDeg <= DEM240_LAT_LIMIT) {
     const polar = await loadPolarField(dataBase)
     if (polar && Number.isFinite(polar.heightAt(latDeg, lonDeg))) return polar
   }
-  return (await loadGlobalField(siteBase)) ?? sphereField()
+  // a grid published on purpose beats one read off the model, which beats a smooth ball
+  return (await loadGlobalField(siteBase)) ?? (fromModel ? equirectField(fromModel, 'model') : sphereField())
 }
