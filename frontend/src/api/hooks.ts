@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { dataSource, getHorizon, getSites, getTerrain, getTimeline, getValidation, getYearSummaries } from './client'
+import { dataSource, getApollo, getHeights, getHorizon, getSites, getTerrain, getTimeline, getValidation, getYearSummaries } from './client'
 import type { DataSource, Horizon, Site, Summary, Terrain, Timeline } from './types'
 
 export type Async<T> = { data: T | null; error: Error | null; loading: boolean }
@@ -36,4 +36,6 @@ export const useTimelines = (ids: string[]) =>
   useAsync<Timeline[]>(() => Promise.all(ids.map((id) => getTimeline(id))), [ids.join(',')])
 
 export const useYearSummaries = () => useAsync<Summary[]>(getYearSummaries, [])
+export const useHeights = () => useAsync(getHeights, [])
+export const useApollo = () => useAsync(getApollo, [])
 export const useValidation = () => useAsync<Record<string, unknown> | null>(getValidation, [])

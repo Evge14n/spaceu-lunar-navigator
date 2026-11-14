@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { formatHours, periodPresets, summarize, timesMs, useSites, useTimelines, type Site, type Summary } from '../api'
+import { formatHours, periodPresets, summarize, timesMs, useHeights, useSites, useTimelines, type Site, type Summary } from '../api'
 import { clampPeriod, PeriodMovedNote, PeriodPicker } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
@@ -22,6 +22,7 @@ const METRICS: Metric[] = [
   { key: 'dark', label: 'Longest darkness to survive', hint: 'Batteries must last this long', get: (s) => s.sun.longest_dark_h, fmt: formatHours, better: 'low' },
   { key: 'litrun', label: 'Longest continuous light', hint: 'Unbroken sunlight', get: (s) => s.sun.longest_lit_h, fmt: formatHours, better: 'high' },
   { key: 'maxel', label: 'Highest Sun', hint: 'More power on a tilted panel', get: (s) => s.sun.max_el, fmt: (v) => (v === null ? 'n/a' : `${v.toFixed(2)}°`), better: 'high' },
+  { key: 'irr', label: 'Sunlight on a panel facing the Sun', hint: 'Mean over the period, W/m²', get: (s) => s.sun.mean_irradiance_w_m2 ?? null, fmt: (v) => (v === null ? 'n/a' : `${Math.round(v)} W/m²`), better: 'high' },
   { key: 'earth', label: 'Earth in view, direct link', hint: 'Radio without a relay satellite', get: (s) => s.earth.visible_percent, fmt: pct, better: 'high' },
   { key: 'sunset', label: 'Hours to the first sunset', hint: 'Counted from the start of the period', get: (s) => s.sun.hours_to_sunset ?? (s.sun.lit_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never up' : formatHours(v)), better: 'high' },
   { key: 'earthset', label: 'Hours to the first Earthset', hint: 'Counted from the start of the period', get: (s) => s.earth.hours_to_earthset ?? (s.earth.visible_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never in view' : formatHours(v)), better: 'high' },
@@ -50,6 +51,7 @@ export default function ComparePage() {
   const list = sites.data ?? []
   const chosen = compareIds.filter((id) => list.some((s) => s.id === id))
   const tls = useTimelines(chosen)
+  const heights = useHeights()
 
   const result = useMemo(() => {
     if (!tls.data || tls.data.length !== chosen.length || !tls.data.length) return null
@@ -150,7 +152,50 @@ export default function ComparePage() {
           </div>
         </section>
       )}
+      {heights.data && chosen.length >= 1 && (
+        <section className="panel" aria-label="What a mast gives">
+          <div className="panel-head">
+            <h2>What a mast gives</h2>
+            <span className="label">Whole year / instrument 1, 2, 5 and 10 m above the ground</span>
+          </div>
+          <div className="table-wrap" role="region" aria-label="Mast height table, scrolls sideways" tabIndex={0}>
+            <table className="cmp">
+              <thead>
+                <tr>
+                  <th scope="col">Site</th>
+                  {heights.data[0].heights.map((h) => (
+                    <th scope="col" key={h.height_m}>
+                      {h.height_m} m up
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {chosen.map((id) => {
+                  const row = heights.data!.find((r) => r.site.id === id)
+                  if (!row) return null
+                  return (
+                    <tr key={id}>
+                      <th scope="row">
+                        {siteNo(list, id)} {row.site.name}
+                        <span className="hint">Sunlit share / longest darkness</span>
+                      </th>
+                      {row.heights.map((h) => (
+                        <td key={h.height_m}>
+                          <span className="num">{h.sun.lit_percent.toFixed(1)} %</span>
+                          <span className="hint">{formatHours(h.sun.longest_dark_h)} dark</span>
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
       <p className="small muted">
+        Sunlight on a panel: 1361 W/m² times the visible part of the solar disc, averaged over the period (within about 3 %, the distance to the Sun is not counted).
         Same rules as the API: the Sun counts while any part of its disc is above the terrain; the Earth counts while its upper limb is. Instrument height 2 m, step 1 h.
       </p>
     </div>
