@@ -56,6 +56,7 @@ export function HorizonPanorama({
 
   return (
     <figure style={{ margin: 0 }}>
+      <div className="pano-scroll" tabIndex={0} role="region" aria-label="Horizon panorama, scrolls sideways on small screens">
       <svg viewBox={`-28 -4 ${W + 36} ${H + 26}`} role="img" aria-label={`Horizon panorama. Sun at azimuth ${sky.sun.az.toFixed(0)}°, Earth at azimuth ${sky.earth.az.toFixed(0)}°`}>
         {ticks.map((e) => (
           <g key={e}>
@@ -72,6 +73,7 @@ export function HorizonPanorama({
           <text key={`${l}${az}`} x={x(az as number)} y={H + 16} textAnchor={(az as number) === 0 ? 'start' : (az as number) === 360 ? 'end' : 'middle'} className="pano-dir">{l}</text>
         ))}
       </svg>
+      </div>
       <figcaption className="small muted" style={{ marginTop: 6 }}>
         Horizon all around the site (vertical scale stretched). Dotted lines: paths of the Sun and the Earth over the next 30 days. A faded disc is behind the terrain.
       </figcaption>

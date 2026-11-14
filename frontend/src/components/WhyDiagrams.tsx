@@ -38,10 +38,10 @@ function Mast() {
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Guaranteed sunlight 68 percent for a panel 1 metre up and 89.3 percent for a panel 5 metres up">
       <text x="20" y="44" className="d-num">68.0 %</text>
       <rect x="20" y="62" width="250" height="68" fill="var(--terrain)" stroke="var(--ink)" strokeWidth="1.5" />
-      <text x="20" y="156" className="d-label">Panel 1 m above the ground</text>
+      <text x="20" y="156" className="d-label">Whole site area, 1 m up</text>
       <text x="300" y="26" className="d-num">89.3 %</text>
       <rect x="300" y="44" width="250" height="86" fill="var(--white)" stroke="var(--ink)" strokeWidth="1.5" />
-      <text x="300" y="156" className="d-label">Panel 5 m above the ground</text>
+      <text x="300" y="156" className="d-label">Whole site area, 5 m up</text>
     </svg>
   )
 }

@@ -66,7 +66,7 @@ function TerrainMesh({ terrain }: { terrain: Terrain }) {
 }
 
 /** Far terrain from the horizon mask: a ring "wall" at FAR_R whose top matches the mask angle. */
-function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number; groundY: number }) {
+function FarHorizon({ horizon, eyeY }: { horizon: Horizon; eyeY: number }) {
   const geo = useMemo(() => {
     const n = horizon.elevation_deg.length
     const pos: number[] = []
@@ -76,7 +76,7 @@ function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number
       const el = horizon.elevation_deg[i % n]
       const [dx, , dz] = dirFromAzEl(az, 0)
       const top = eyeY + FAR_R * Math.tan((el * Math.PI) / 180)
-      pos.push(dx * FAR_R, groundY, dz * FAR_R, dx * FAR_R, Math.max(top, groundY + 1), dz * FAR_R)
+      pos.push(dx * FAR_R, Math.min(top, eyeY) - 8000, dz * FAR_R, dx * FAR_R, top, dz * FAR_R)
       if (i < n) {
         const a = i * 2
         idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
@@ -87,17 +87,11 @@ function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number
     g.setIndex(idx)
     g.computeVertexNormals()
     return g
-  }, [horizon, eyeY, groundY])
+  }, [horizon, eyeY])
   return (
-    <>
-      <mesh geometry={geo}>
-        <meshBasicMaterial color="#2c2a27" side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, groundY, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[100, FAR_R, 96]} />
-        <meshStandardMaterial color="#45433f" roughness={1} />
-      </mesh>
-    </>
+    <mesh geometry={geo}>
+      <meshBasicMaterial color="#3a3d41" side={THREE.DoubleSide} />
+    </mesh>
   )
 }
 
@@ -313,17 +307,19 @@ function CameraRig({
       // look along the body's azimuth, a little above it, so the horizon sits in the lower part of the frame
       const look = Math.min(Math.max(el, -0.05), 0.1) + (3 * Math.PI) / 180
       const dir = new THREE.Vector3(Math.cos(look) * Math.sin(az), Math.sin(look), -Math.cos(look) * Math.cos(az))
-      c.target.set(dir.x * 50, eyeY + dir.y * 50, dir.z * 50)
-      camera.position.set(-dir.x * 0.5, eyeY - dir.y * 0.5, -dir.z * 0.5)
+      camera.position.set(0, eyeY, 0)
+      c.target.set(dir.x * 0.01, eyeY + dir.y * 0.01, dir.z * 0.01)
       cam.fov = EYE_FOV
-      c.minDistance = 0.1
-      c.maxDistance = 200
+      c.minDistance = 0.005
+      c.maxDistance = 0.02
+      c.enableZoom = false
     } else {
       camera.position.set(-Math.sin(az) * 6000, eyeY + 1800, Math.cos(az) * 6000)
       c.target.set(0, eyeY, 0)
       cam.fov = ABOVE_FOV
       c.minDistance = 500
       c.maxDistance = 20_000
+      c.enableZoom = true
     }
     cam.updateProjectionMatrix()
     c.update()
@@ -340,7 +336,7 @@ const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 const azName = (a: number) => `${DIRS[Math.round((((a % 360) + 360) % 360) / 45) % 8]} ${Math.round(((a % 360) + 360) % 360)}°`
 
 /** Writes the elevation ladder and the azimuths at the frame edges into DOM overlays, every frame, without React renders. */
-function OverlayWriter({ refs, eyeY, show }: { refs: OverlayRefs; eyeY: number; show: boolean }) {
+function OverlayWriter({ refs, show }: { refs: OverlayRefs; show: boolean }) {
   const v = useMemo(() => new THREE.Vector3(), [])
   const fwd = useMemo(() => new THREE.Vector3(), [])
   useFrame(({ camera, size }) => {
@@ -356,9 +352,7 @@ function OverlayWriter({ refs, eyeY, show }: { refs: OverlayRefs; eyeY: number; 
     for (let k = 0; k < spans.length; k++) {
       const e = (Number((spans[k] as HTMLElement).dataset.el) * Math.PI) / 180
       v.set(Math.cos(e) * Math.sin(yaw), Math.sin(e), -Math.cos(e) * Math.cos(yaw)).multiplyScalar(1000)
-      v.y += eyeY
-      v.x += camera.position.x - 0
-      v.z += camera.position.z - 0
+      v.add(camera.position)
       v.project(camera)
       const y = ((1 - v.y) / 2) * size.height
       const el = spans[k] as HTMLElement
@@ -420,7 +414,7 @@ function SceneInner({
       <group scale={[1, exaggeration, 1]}>
         <TerrainMesh terrain={terrain} />
       </group>
-      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={(edgeHeight(terrain) - 5) * exaggeration} />}
+      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} />}
       <SkyDome sky={sky} enlarge={enlarge} />
       {mode === 'overview' && <Compass eyeY={eyeY} />}
       {mode === 'overview' && (
@@ -430,7 +424,7 @@ function SceneInner({
         </mesh>
       )}
       <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} resetKey={resetKey} />
-      {overlay && <OverlayWriter refs={overlay} eyeY={eyeY} show={mode === 'site'} />}
+      {overlay && <OverlayWriter refs={overlay} show={mode === 'site'} />}
     </Canvas>
     </div>
   )

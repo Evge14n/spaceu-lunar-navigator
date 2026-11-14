@@ -71,7 +71,7 @@ const WindowStrip = memo(function WindowStrip({
       <div className="strip" role="img" aria-label={`${label}: ${rs.length} windows in the period; hatching means not visible`}>
         <svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
           {rs.map((r) => (
-            <rect key={r.i0} x={x(ms[r.i0])} width={Math.max(0.15, x(ms[r.i1]) - x(ms[r.i0]))} y="0" height="10" className={`strip-on ${body}`} />
+            <rect key={r.i0} x={x(ms[r.i0])} width={Math.max(0.15, x(ms[r.i1] + 3_600_000) - x(ms[r.i0]))} y="0" height="10" className={`strip-on ${body}`} />
           ))}
         </svg>
       </div>
@@ -198,12 +198,16 @@ export default function TimelinePage() {
               <i className="k-terrain" />
               Terrain toward the Sun
             </span>
+            <span>
+              <i className="k-earth" style={{ opacity: 0.5 }} />
+              Terrain toward Earth, dashed
+            </span>
           </span>
         </div>
         <ResponsiveContainer width="100%" height={340}>
           <ComposedChart
             data={view.rows}
-            margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             onClick={(e) => {
               const x = (e as { activeLabel?: number | string } | null)?.activeLabel
               if (x !== undefined) setTime(Number(x))
@@ -224,7 +228,8 @@ export default function TimelinePage() {
             <YAxis
               stroke="var(--ink)"
               tick={{ fontSize: 12, fontFamily: 'var(--f-mono)', fill: 'var(--ink-2)' }}
-              tickFormatter={(v: number) => (v > 0 ? `+${v}` : `${v}`)}
+              width={50}
+              tickFormatter={(v: number) => `${v > 0 ? '+' : ''}${v}°`}
               domain={['auto', 'auto']}
             />
             <Tooltip

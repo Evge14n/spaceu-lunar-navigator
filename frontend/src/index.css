@@ -203,6 +203,12 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .scalebar { display: flex; align-items: center; gap: 10px; }
 .scalebar i { display: block; height: 8px; border: 1px solid var(--ink); border-top: 0; }
 .index-head { margin: 18px 0 8px; }
+.index-mob { display: none; }
+.pano-scroll { overflow-x: auto; }
+.wstrips { padding-left: 50px; padding-right: 8px; }
+.wrow { display: flex !important; flex-direction: column; gap: 2px; }
+.cmp td .num { white-space: nowrap; }
+.period-tag { padding: 8px 20px; border-bottom: 1px solid var(--line); }
 .index { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; list-style: none; margin: 0; padding: 0; }
 .index li { margin: 0 -1px -1px 0; }
 .index button {
@@ -297,6 +303,7 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .scene-cap { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .stage { position: relative; height: min(62vh, 560px); min-height: 340px; overflow: hidden; border: 1px solid var(--ink); background: #0a0d12; }
 .stage canvas { touch-action: none; }
+@media (max-width: 700px) { .stage canvas { touch-action: pan-y !important; } }
 .canvas-wrap { position: absolute; inset: 0; }
 .stage-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #c9ced4; font-family: var(--f-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding: 16px; }
 .ov { position: absolute; pointer-events: none; font-family: var(--f-mono); font-size: 11px; color: #e9ecef; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -406,6 +413,12 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
   .index { grid-template-columns: 1fr; }
   .index button { min-height: 48px; }
   .marker { pointer-events: none; }
+  .marker .tag { display: none; }
+  .index-desk { display: none; }
+  .index-mob { display: block; }
+  .pano-scroll svg { min-width: 640px; }
+  .cmp tbody th { min-width: 118px; width: auto; }
+  .wstrips { padding-left: 44px; }
   .site-card .card-title h2 { font-size: 30px; }
   .cell .num.big { font-size: 46px; }
   .custom .row { grid-template-columns: 1fr 1fr; }

@@ -32,7 +32,7 @@ export const why: WhyItem[] = [
     id: 'mast',
     title: 'A few metres of mast change everything',
     body: 'The light skims the surface, so a boulder or a small rise casts a shadow hundreds of metres long. Lifting the panel gets it above those shadows.',
-    fact: 'Share of time with sunlight guaranteed over 99 % of one candidate site: 68.0 % at 1 m, 89.3 % at 5 m.',
+    fact: 'Light guaranteed over 99 % of the area of one candidate site (Barker Site 1): 68.0 % of the time at 1 m, 89.3 % at 5 m.',
     source: 'Barker et al. 2021, Planetary and Space Science, Site 1, doi:10.1016/j.pss.2020.105119',
     diagram: 'mast',
   },
