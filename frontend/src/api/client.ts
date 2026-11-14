@@ -7,7 +7,8 @@
 //   mock           - always ./mock/
 // VITE_API_URL (optional): live FastAPI, used only for custom coordinates ("custom:-89.5,0").
 
-import type { DataSource, Horizon, Site, Terrain, TerrainMeta, Timeline } from './types'
+import type { DataSource, Horizon, Site, Summary, Terrain, TerrainMeta, Timeline } from './types'
+import { summarize, timesMs } from './compute'
 
 const env = import.meta.env
 const MODE = ((env.VITE_DATA as string | undefined) ?? 'auto') as 'auto' | DataSource
@@ -168,5 +169,27 @@ export interface IlluminationMeta {
   x_km: [number, number]
   y_km: [number, number]
   source?: string
+  lat_limit?: number
   legend?: { percent: number; grey: number }[]
+}
+
+/**
+ * Whole-year summaries of every listed site (index of sites, Accuracy).
+ * Real data: data/summary/compare_1y.json from the backend. Mock: computed from the mock timelines.
+ */
+export async function getYearSummaries(): Promise<Summary[]> {
+  if ((await dataSource()) === 'real' && (await dataFiles()).has('summary/compare_1y.json'))
+    return getJson<Summary[]>(`${BASE}data/summary/compare_1y.json`)
+  const sites = await getSites()
+  const tls = await Promise.all(sites.map((s) => getTimeline(s.id)))
+  return tls.map((tl, i) => {
+    const ms = timesMs(tl)
+    return summarize(tl, { id: sites[i].id, name: sites[i].name }, ms[0], ms[ms.length - 1])
+  })
+}
+
+/** Validation results published by the backend (data/validation.json), or null while it is not there. */
+export async function getValidation(): Promise<Record<string, unknown> | null> {
+  if ((await dataSource()) !== 'real' || !(await dataFiles()).has('validation.json')) return null
+  return getJson<Record<string, unknown>>(`${BASE}data/validation.json`)
 }
