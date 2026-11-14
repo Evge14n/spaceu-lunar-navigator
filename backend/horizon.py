@@ -13,6 +13,9 @@ the ray. Sampling (distance from the site -> step, elevation model used first):
     3 km .. 30 km   step 20 m   LDEM 20 m, then 80 m
     30 km .. 150 km step 80 m   LDEM 80 m, then 120 m
 
+With `max_range_m` above 150 km the ray goes on to 400 km in steps of 240 m; the validation
+uses it to measure what the 150 km limit costs (docs/VALIDATION.md).
+
 Where a model has no data the next coarser one is used. On a smooth sphere the result
 is the dip of the horizon, -sqrt(2 h / R) = -0.087 deg for h = 2 m.
 """
@@ -31,8 +34,15 @@ N_AZIMUTH = 720
 STEP_DEG = 360.0 / N_AZIMUTH
 MAX_RANGE_M = 150_000.0
 
+FAR_RANGE_M = 400_000.0  # only for `max_range_m` above the default: what the 150 km limit costs
+
 # (first distance, last distance, step) in metres
-SEGMENTS = ((5.0, 3000.0, 5.0), (3020.0, 30000.0, 20.0), (30080.0, MAX_RANGE_M, 80.0))
+SEGMENTS = (
+    (5.0, 3000.0, 5.0),
+    (3020.0, 30000.0, 20.0),
+    (30080.0, MAX_RANGE_M, 80.0),
+    (MAX_RANGE_M + 240.0, FAR_RANGE_M, 240.0),
+)
 
 _EMPTY = np.full((2, 2), -32768, dtype=np.int16)
 _EMPTY_PARAMS = np.array([0.0, 0.0, 1.0, 1.0, -32768.0])
