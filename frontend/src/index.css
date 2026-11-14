@@ -166,11 +166,13 @@ input[type='range'] { width: 100%; accent-color: var(--sun); min-height: 32px; }
 .cmp th, .cmp td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
 .cmp tbody tr:last-child th, .cmp tbody tr:last-child td { border-bottom: 0; }
 .cmp thead th { font-size: 0.85rem; color: var(--ink-2); font-weight: 600; background: var(--panel); }
-.cmp tbody th { font-weight: 600; width: 32%; }
+.cmp tbody th { font-weight: 600; width: 32%; min-width: 150px; }
+.cmp tbody th, .cmp thead th:first-child { position: sticky; left: 0; background: var(--bg-2); z-index: 1; }
+.cmp thead th:first-child { background: var(--panel); }
 .cmp .hint { display: block; font-weight: 400; color: var(--ink-3); font-size: 0.8rem; margin-top: 2px; }
 .cmp td { font-size: 1rem; }
 .cmp td.best { background: var(--sun-dim); color: var(--ink-1); font-weight: 650; }
-.best-tag { margin-left: 8px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sun); font-weight: 700; }
+.best-tag { display: block; margin-top: 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sun); font-weight: 700; }
 
 /* Map */
 .map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
@@ -245,6 +247,10 @@ input[type='range'] { width: 100%; accent-color: var(--sun); min-height: 32px; }
 @media (max-width: 600px) {
   .top { flex-wrap: wrap; gap: 6px 12px; padding: 8px 16px; }
   .top nav { order: 3; flex-basis: 100%; }
+  .top ul { gap: 0; margin: 0 -8px; }
+  .top nav a { padding: 8px 9px; font-size: 0.95rem; }
+  .cmp th, .cmp td { padding: 10px 12px; }
+  .cmp tbody th { min-width: 132px; }
   .brand span { font-size: 0.95rem; }
   .brand small { display: none; }
   main { padding: 20px 16px 32px; }

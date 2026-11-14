@@ -45,6 +45,18 @@ function hasRealSites(x: unknown): boolean {
   )
 }
 
+let manifestPromise: Promise<Set<string>> | null = null
+
+/** Files present in data/ (written at build time by vite.config.ts). */
+export function dataFiles(): Promise<Set<string>> {
+  if (!manifestPromise) {
+    manifestPromise = getJson<{ files: string[] }>(`${BASE}data-manifest.json`)
+      .then((m) => new Set(m.files))
+      .catch(() => new Set<string>())
+  }
+  return manifestPromise
+}
+
 let sourcePromise: Promise<DataSource> | null = null
 
 /** Which data the site is showing. Resolved once per page load. */
@@ -53,7 +65,8 @@ export function dataSource(): Promise<DataSource> {
     sourcePromise =
       MODE !== 'auto'
         ? Promise.resolve(MODE)
-        : getJson<Site[]>(`${BASE}data/sites.json`)
+        : dataFiles()
+            .then((files) => (files.has('sites.json') ? getJson<Site[]>(`${BASE}data/sites.json`) : []))
             .then((s) => (hasRealSites(s) ? ('real' as const) : ('mock' as const)))
             .catch(() => 'mock' as const)
   }
@@ -125,6 +138,7 @@ export function getTerrain(siteId: string): Promise<Terrain> {
 /** URL of the illumination map layer (data/illumination.png), or null when it is not published yet. */
 export async function getIlluminationLayer(): Promise<{ url: string; meta: IlluminationMeta } | null> {
   try {
+    if (!(await dataFiles()).has('illumination.json')) return null
     const meta = await getJson<IlluminationMeta>(`${BASE}data/illumination.json`)
     return { url: `${BASE}data/${meta.file ?? 'illumination.png'}`, meta }
   } catch {
