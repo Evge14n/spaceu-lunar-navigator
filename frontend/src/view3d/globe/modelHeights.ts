@@ -45,6 +45,9 @@ export function sampleModelHeights(object: THREE.Object3D, rotation: Mat3, centr
   }
 
   const [width, height] = gridSize(vertices)
+  // a very heavy model is read every k-th vertex: the grid is coarser than that anyway, and this
+  // runs on the main thread while the globe is on screen
+  const stride = Math.max(1, Math.ceil(vertices / 4_000_000))
   const sum = new Float64Array(width * height)
   const count = new Uint32Array(width * height)
   const v = new THREE.Vector3()
@@ -57,7 +60,7 @@ export function sampleModelHeights(object: THREE.Object3D, rotation: Mat3, centr
   for (const mesh of meshes) {
     const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute
     rel.copy(inv).multiply(mesh.matrixWorld)
-    for (let i = 0; i < pos.count; i++) {
+    for (let i = 0; i < pos.count; i += stride) {
       v.fromBufferAttribute(pos, i).applyMatrix4(rel).sub(centre).multiplyScalar(scale)
       const r = v.length()
       if (!(r > 0)) continue
