@@ -1,4 +1,4 @@
-// Texts for the "Why" sheet. Owner: Nazar. Drafts from the design (Claude Design, 14.11), replace freely.
+// Texts for the "Why" sheet. Owner: Nazar. Drafts from the design mock-up, replace freely.
 // Keep each body to 1-2 sentences. `diagram` picks a picture in components/WhyDiagrams.tsx.
 // A fact may be replaced on the page by a number computed from data/ (see WhyPage.tsx, `dataFact`).
 
