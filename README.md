@@ -11,7 +11,7 @@ A web tool that compares landing sites and dates at the lunar south pole by two 
 | `backend/` | Python: Sun and Earth positions (NAIF SPICE), horizon masks from LOLA terrain, metrics, FastAPI | Yevhen |
 | `data/` | site list, precomputed JSON for the demo, terrain tiles for 3D | Yevhen |
 | `frontend/` | React app: map, comparison table, timeline chart, 3D view, explanations | Anastasiia U., Anastasiia Sh. |
-| `docs/` | architecture, API contract, validation, task plan, AI log | everyone |
+| `docs/` | architecture, API contract, validation, task plan | everyone |
 
 Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), the API contract is in [docs/API.md](docs/API.md), the plan for the weekend is in [docs/TASKS.md](docs/TASKS.md).
 
@@ -25,7 +25,7 @@ Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), the API contract is in 
 
 ## Use of AI
 
-Claude (Anthropic) helped write code and text. Every formula and number is checked against JPL Horizons and NASA illumination maps. The log is in [docs/AI_LOG.md](docs/AI_LOG.md).
+AI tools assisted with writing code.
 
 ## License
 
