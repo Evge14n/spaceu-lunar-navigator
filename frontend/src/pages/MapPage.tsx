@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   API_URL,
   customId,
@@ -12,7 +12,7 @@ import {
 } from '../api'
 import { clampPeriod, siteLabel } from '../components/Controls'
 import { Notice } from '../components/Notice'
-import { hrefFor, useAppState } from '../state'
+import { useAppState } from '../state'
 
 const R_KM = 1737.4
 
@@ -31,7 +31,7 @@ export function unproject(x: number, y: number): [number, number] {
 }
 
 export default function MapPage() {
-  const { siteId, setSite, from, to } = useAppState()
+  const { siteId, setSite, from, to, navigate, href } = useAppState()
   const sites = useSites()
   const layer = useAsync(getIlluminationLayer, [])
   const tl = useTimeline(siteId && !siteId.startsWith('custom:') ? siteId : null)
@@ -55,6 +55,17 @@ export default function MapPage() {
   }, [tl.data, site, from, to])
 
   const E = extent
+  // Keep text and markers a fixed size on screen: map units per CSS pixel.
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [widthPx, setWidthPx] = useState(800)
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setWidthPx(Math.max(200, e.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [sites.loading])
+  const u = (2 * E) / widthPx
   const rings = [89, 88, 87, 86, 85, 84, 82, 80].filter((lat) => Math.hypot(...project(-lat, 0)) < E)
   const spokes = Array.from({ length: 12 }, (_, i) => i * 30)
 
@@ -84,7 +95,7 @@ export default function MapPage() {
       {!sites.loading && (
         <div className="map-layout">
           <figure className="map-figure">
-            <svg viewBox={`${-E} ${-E} ${2 * E} ${2 * E}`} style={{ fontSize: E * 0.036 }} onClick={onMapClick} role="group" aria-label="Map of the lunar south pole with landing sites">
+            <svg ref={svgRef} viewBox={`${-E} ${-E} ${2 * E} ${2 * E}`} style={{ fontSize: 13 * u }} onClick={onMapClick} role="group" aria-label="Map of the lunar south pole with landing sites">
               <defs>
                 <clipPath id="disc">
                   <rect x={-E} y={-E} width={2 * E} height={2 * E} />
@@ -107,7 +118,7 @@ export default function MapPage() {
                   return (
                     <g key={lat}>
                       <circle r={r} />
-                      <text x={r * 0.71 + E * 0.01} y={-r * 0.71} className="grat-label">{lat}° S</text>
+                      <text x={r * 0.71 + 3 * u} y={-r * 0.71} className="grat-label">{lat}° S</text>
                     </g>
                   )
                 })}
@@ -123,12 +134,12 @@ export default function MapPage() {
                     </g>
                   )
                 })}
-                <circle r={E * 0.008} className="pole" />
+                <circle r={2.5 * u} className="pole" />
               </g>
               {validPick && (
                 <g className="pick" transform={`translate(${px} ${-py})`} aria-hidden="true">
-                  <line x1={-E * 0.025} x2={E * 0.025} y1={0} y2={0} />
-                  <line y1={-E * 0.025} y2={E * 0.025} x1={0} x2={0} />
+                  <line x1={-9 * u} x2={9 * u} y1={0} y2={0} />
+                  <line y1={-9 * u} y2={9 * u} x1={0} x2={0} />
                 </g>
               )}
               {list.map((s) => {
@@ -151,9 +162,9 @@ export default function MapPage() {
                       }
                     }}
                   >
-                    <circle r={E * 0.045} className="hit" />
-                    <circle r={E * (on ? 0.02 : 0.014)} className="dot" />
-                    <text x={E * 0.03} y={E * 0.012} className="marker-label">{s.name}</text>
+                    <circle r={22 * u} className="hit" />
+                    <circle r={(on ? 7 : 5) * u} className="dot" />
+                    <text x={11 * u} y={4.5 * u} className="marker-label">{s.name}</text>
                   </g>
                 )
               })}
@@ -187,8 +198,8 @@ export default function MapPage() {
                 )}
                 <p className="muted small">For the selected period. Source: {site.source}</p>
                 <div className="actions">
-                  <a className="btn" href={hrefFor('/timeline')}>Open timeline</a>
-                  <a className="btn ghost" href={hrefFor('/3d')}>3D view</a>
+                  <a className="btn" href={href('/timeline')}>Open timeline</a>
+                  <a className="btn ghost" href={href('/3d')}>3D view</a>
                 </div>
               </section>
             ) : (
@@ -201,7 +212,7 @@ export default function MapPage() {
                 e.preventDefault()
                 if (validPick && API_URL) {
                   setSite(customId(lat, lon))
-                  window.location.hash = hrefFor('/timeline').slice(1)
+                  navigate('/timeline')
                 }
               }}
             >

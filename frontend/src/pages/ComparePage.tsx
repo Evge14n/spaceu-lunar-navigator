@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { formatHours, summarize, timesMs, useSites, useTimelines, type Site, type Summary } from '../api'
-import { clampPeriod, PeriodPicker, siteLabel } from '../components/Controls'
+import { clampPeriod, PeriodMovedNote, PeriodPicker, siteLabel } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { useAppState } from '../state'
 
@@ -10,7 +10,7 @@ interface Metric {
   hint: string
   get: (s: Summary) => number | null
   fmt: (v: number | null) => string
-  better: 'high' | 'low'
+  better: 'high' | 'low' | 'none'
 }
 
 const pct = (v: number | null) => (v === null ? 'n/a' : `${v} %`)
@@ -20,13 +20,14 @@ const METRICS: Metric[] = [
   { key: 'dark', label: 'Longest darkness', hint: 'Batteries must last this long', get: (s) => s.sun.longest_dark_h, fmt: formatHours, better: 'low' },
   { key: 'litrun', label: 'Longest sunlit stretch', hint: 'Longest continuous light', get: (s) => s.sun.longest_lit_h, fmt: formatHours, better: 'high' },
   { key: 'maxel', label: 'Highest Sun', hint: 'Higher Sun, more power on a tilted panel', get: (s) => s.sun.max_el, fmt: (v) => (v === null ? 'n/a' : `${v.toFixed(2)}°`), better: 'high' },
-  { key: 'sunset', label: 'First sunset after start', hint: 'Hours from the start of the period', get: (s) => s.sun.hours_to_sunset, fmt: (v) => (v === null ? 'none in data' : formatHours(v)), better: 'high' },
+  { key: 'sunset', label: 'First sunset after start', hint: 'Hours from the start of the period', get: (s) => s.sun.hours_to_sunset ?? (s.sun.lit_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never up' : formatHours(v)), better: 'high' },
   { key: 'earth', label: 'Earth visible', hint: 'Direct-to-Earth radio possible', get: (s) => s.earth.visible_percent, fmt: pct, better: 'high' },
-  { key: 'windows', label: 'Earth windows', hint: 'Separate periods with Earth in view', get: (s) => s.earth.windows.length, fmt: (v) => String(v ?? 0), better: 'high' },
-  { key: 'earthset', label: 'First Earthset after start', hint: 'Hours from the start of the period', get: (s) => s.earth.hours_to_earthset, fmt: (v) => (v === null ? 'none in data' : formatHours(v)), better: 'high' },
+  { key: 'windows', label: 'Earth windows', hint: 'Separate periods with Earth in view', get: (s) => s.earth.windows.length, fmt: (v) => String(v ?? 0), better: 'none' },
+  { key: 'earthset', label: 'First Earthset after start', hint: 'Hours from the start of the period', get: (s) => s.earth.hours_to_earthset ?? (s.earth.visible_percent > 0 ? Infinity : null), fmt: (v) => (v === null ? 'never in view' : formatHours(v)), better: 'high' },
 ]
 
-function best(values: (number | null)[], better: 'high' | 'low'): number | null {
+function best(values: (number | null)[], better: Metric['better']): number | null {
+  if (better === 'none') return null
   const nums = values.filter((v): v is number => v !== null)
   if (nums.length < 2) return null
   const b = better === 'high' ? Math.max(...nums) : Math.min(...nums)
@@ -43,12 +44,12 @@ export default function ComparePage() {
   const result = useMemo(() => {
     if (!tls.data || tls.data.length !== chosen.length || !tls.data.length) return null
     const ms = timesMs(tls.data[0])
-    const [f, e] = clampPeriod(from, to, ms)
+    const [f, e, moved] = clampPeriod(from, to, ms)
     const sums = tls.data.map((tl, i) => {
       const s = list.find((x) => x.id === chosen[i]) as Site
       return summarize(tl, { id: s.id, name: s.name }, f, e)
     })
-    return { f, e, ms, sums }
+    return { f, e, ms, sums, moved }
   }, [tls.data, chosen, list, from, to])
 
   const toggle = (id: string) => {
@@ -85,6 +86,7 @@ export default function ComparePage() {
         />
       </div>
 
+      <PeriodMovedNote moved={!!result?.moved} />
       {chosen.length < 2 && <Notice title="Pick at least two sites to compare" />}
       {tls.error && <Notice tone="error" title="Some site data is missing">{tls.error.message}</Notice>}
       {tls.loading && chosen.length >= 2 && <div className="skeleton table-skeleton" aria-busy="true" />}

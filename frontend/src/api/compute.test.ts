@@ -147,6 +147,20 @@ describe('skyAt and helpers', () => {
     expect(formatHours(0.5)).toBe('30 min')
     expect(formatHours(30)).toBe('30 h')
     expect(formatHours(50)).toBe('2 d 2 h')
+    expect(formatHours(71.7)).toBe('3 d 0 h')
+    expect(formatHours(0.999)).toBe('1 h')
+  })
+  it('longest run never exceeds the period', () => {
+    const tl = synth('1'.repeat(49))
+    const s = summarize(tl, { id: 't', name: 'T' }, Date.parse(tl.times[0]), Date.parse(tl.times[48]))
+    expect(s.sun.longest_lit_h).toBe(48)
+  })
+  it('state between samples follows the interpolated crossing', () => {
+    const tl = synth('1100')
+    // crossing at about 1.63 h; at 1.9 h the Sun is already down
+    const t = Date.parse(tl.times[0]) + 1.9 * HOUR
+    const tr = nextTransition(tl, 'sun', t)
+    expect(tr.up).toBe(false)
   })
 })
 

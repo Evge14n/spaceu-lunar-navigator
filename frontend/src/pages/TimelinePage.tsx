@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useDeferredValue, useMemo } from 'react'
 import {
   Area,
   CartesianGrid,
@@ -25,7 +25,7 @@ import {
   riseSet,
   type Timeline,
 } from '../api'
-import { clampPeriod, fmtUtc, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
+import { clampPeriod, fmtUtc, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { HorizonPanorama } from '../components/HorizonPanorama'
 import { useAppState } from '../state'
@@ -46,8 +46,9 @@ const fmtTick = (t: number) => {
 }
 
 /** Strip of shaded windows when a body is visible. */
-function WindowStrip({
+const WindowStrip = memo(function WindowStrip({
   tl,
+  ms,
   body,
   i0,
   i1,
@@ -56,6 +57,7 @@ function WindowStrip({
   label,
 }: {
   tl: Timeline
+  ms: number[]
   body: 'sun' | 'earth'
   i0: number
   i1: number
@@ -63,7 +65,6 @@ function WindowStrip({
   to: number
   label: string
 }) {
-  const ms = timesMs(tl)
   const rs = runs(visibleFlags(tl, body), i0, i1).filter((r) => r.value)
   const span = to - from || 1
   const x = (t: number) => ((t - from) / span) * 100
@@ -78,25 +79,24 @@ function WindowStrip({
       </svg>
     </div>
   )
-}
+})
 
 export default function TimelinePage() {
   const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
   const sites = useSites()
   const tl = useTimeline(siteId)
   const horizon = useHorizon(siteId)
-  const site = sites.data?.find((s) => s.id === siteId)
 
   const view = useMemo(() => {
     if (!tl.data) return null
     const ms = timesMs(tl.data)
-    const [f, e] = clampPeriod(from, to, ms)
+    const [f, e, moved] = clampPeriod(from, to, ms)
     const range = indexRange(ms, f, e)
     if (!range) return null
     const [i0, i1] = range
     const d = tl.data
     const rows = []
-    const every = Math.max(1, Math.ceil((i1 - i0 + 1) / 1500))
+    const every = Math.max(1, Math.ceil((i1 - i0 + 1) / 700))
     for (let i = i0; i <= i1; i += every) {
       rows.push({
         t: ms[i],
@@ -106,8 +106,10 @@ export default function TimelinePage() {
         earthHz: d.earth.horizon_el[i],
       })
     }
-    return { ms, f, e, i0, i1, rows }
+    const sum = summarize(d, { id: d.site.id, name: d.site.id }, f, e)
+    return { ms, f, e, i0, i1, rows, moved, sum }
   }, [tl.data, from, to])
+  const tChart = useDeferredValue(t)
 
   if (sites.loading || tl.loading) return <div className="skeleton page-skeleton" aria-busy="true" />
   if (tl.error) return <Notice tone="error" title="No timeline for this site yet">{tl.error.message}</Notice>
@@ -118,7 +120,7 @@ export default function TimelinePage() {
   const sky = skyAt(d, tt, view.ms)
   const sunTr = nextTransition(d, 'sun', tt, view.ms)
   const earthTr = nextTransition(d, 'earth', tt, view.ms)
-  const sum = summarize(d, { id: d.site.id, name: site?.name ?? d.site.id }, view.f, view.e)
+  const sum = view.sum
 
   return (
     <div className="page timeline">
@@ -132,7 +134,8 @@ export default function TimelinePage() {
         <PeriodPicker from={view.f} to={view.e} min={view.ms[0]} max={view.ms[view.ms.length - 1]} onChange={setPeriod} />
       </div>
 
-      <section className="readout" aria-live="polite" aria-label="At the selected time">
+      <PeriodMovedNote moved={view.moved} />
+      <section className="readout" aria-label="At the selected time">
         <div className="read read-sun">
           <h2>Sun</h2>
           <p className="big">{riseSet(sunTr, 'Sunset in', 'Below the terrain, sunrise in', 'No sunset in the data', 'No sunrise in the data')}</p>
@@ -189,12 +192,12 @@ export default function TimelinePage() {
             <Line dataKey="earthHz" name="Terrain toward Earth" type="monotone" stroke="var(--earth)" strokeOpacity={0.45} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
             <Line dataKey="sun" name="Sun elevation" type="monotone" stroke="var(--sun)" strokeWidth={2} dot={false} isAnimationActive={false} />
             <Line dataKey="earth" name="Earth elevation" type="monotone" stroke="var(--earth)" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <ReferenceLine x={tt} stroke="var(--ink-1)" strokeWidth={1} />
+            <ReferenceLine x={Math.min(Math.max(tChart, view.f), view.e)} stroke="var(--ink-1)" strokeWidth={1} />
           </ComposedChart>
         </ResponsiveContainer>
         <div className="strips">
-          <WindowStrip tl={d} body="sun" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Sun visible" />
-          <WindowStrip tl={d} body="earth" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Earth visible" />
+          <WindowStrip tl={d} ms={view.ms} body="sun" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Sun visible" />
+          <WindowStrip tl={d} ms={view.ms} body="earth" i0={view.i0} i1={view.i1} from={view.f} to={view.e} label="Earth visible" />
         </div>
         <figcaption>
           Grey area: height of the mountains in the direction of the Sun. The Sun counts as visible while any part of its disc is above them. Click the chart to jump to a moment.

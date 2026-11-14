@@ -40,8 +40,7 @@ async function getJson<T>(url: string): Promise<T> {
 function hasRealSites(x: unknown): boolean {
   return (
     Array.isArray(x) &&
-    x.length > 0 &&
-    x.every((s: Site) => typeof s.lat === 'number' && typeof s.lon === 'number' && !s.mock)
+    x.some((s: Site) => typeof s.lat === 'number' && typeof s.lon === 'number' && !s.mock)
   )
 }
 
@@ -73,8 +72,10 @@ export function dataSource(): Promise<DataSource> {
   return sourcePromise
 }
 
+/** URL of a static file; with real data, refuses files the build did not publish (no 404 in the console). */
 async function staticUrl(path: string): Promise<string> {
   const src = await dataSource()
+  if (src === 'real' && !(await dataFiles()).has(path)) throw new DataError(`data/${path} is not published yet`, path)
   return `${BASE}${src === 'real' ? 'data' : 'mock'}/${path}`
 }
 
@@ -87,8 +88,12 @@ export function customId(lat: number, lon: number): string {
   return `custom:${Math.round(lat * 1e4) / 1e4},${Math.round(lon * 1e4) / 1e4}`
 }
 
+/** Site list. With real data, sites whose timeline is not published yet are left out. */
 export async function getSites(): Promise<Site[]> {
-  return getJson<Site[]>(await staticUrl('sites.json'))
+  const sites = await getJson<Site[]>(await staticUrl('sites.json'))
+  if ((await dataSource()) !== 'real') return sites
+  const files = await dataFiles()
+  return sites.filter((s) => s.lat !== null && s.lon !== null && files.has(`timeline/${s.id}.json`))
 }
 
 /** Full timeline for a site. Static file for listed sites, live API for custom coordinates. */
@@ -118,6 +123,7 @@ export function getTerrain(siteId: string): Promise<Terrain> {
   let p = terrainCache.get(siteId)
   if (!p) {
     p = (async () => {
+      if (isCustom(siteId)) throw new DataError('3D terrain is available for listed sites only', '')
       const metaUrl = await staticUrl(`terrain/${siteId}.json`)
       const meta = await getJson<TerrainMeta>(metaUrl)
       const binUrl = await staticUrl(meta.file.replace(/^terrain\//, 'terrain/'))

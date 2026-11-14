@@ -70,6 +70,7 @@ export function PeriodPicker({
           min={lo}
           max={hi}
           onChange={(e) => {
+            if (!/^[12]\d{3}-/.test(e.target.value)) return // half-typed year
             const v = fromDateInput(e.target.value)
             if (Number.isFinite(v)) onChange(v, Math.max(to, v + 24 * HOUR))
           }}
@@ -84,6 +85,7 @@ export function PeriodPicker({
           min={lo}
           max={hi}
           onChange={(e) => {
+            if (!/^[12]\d{3}-/.test(e.target.value)) return // half-typed year
             const v = fromDateInput(e.target.value)
             if (Number.isFinite(v)) onChange(Math.min(from, v - 24 * HOUR), v)
           }}
@@ -126,12 +128,20 @@ export function TimeSlider({
   )
 }
 
-/** Clamp the selected period to what the timeline covers. */
-export function clampPeriod(from: number, to: number, ms: number[]): [number, number] {
-  if (!ms.length) return [from, to]
+/**
+ * Fit the selected period into what the timeline covers. If the period misses the data,
+ * fall back to the first 14 days of the data and say so (moved = true).
+ */
+export function clampPeriod(from: number, to: number, ms: number[]): [number, number, boolean] {
+  if (!ms.length) return [from, to, false]
   const lo = ms[0]
   const hi = ms[ms.length - 1]
-  const f = Math.min(Math.max(from, lo), hi)
-  const t = Math.min(Math.max(to, f + HOUR), hi)
-  return [f, t]
+  const overlap = Math.min(to, hi) - Math.max(from, lo)
+  if (overlap < 24 * HOUR) return [lo, Math.min(hi, lo + 14 * 24 * HOUR), true]
+  return [Math.max(from, lo), Math.min(to, hi), false]
+}
+
+export function PeriodMovedNote({ moved }: { moved: boolean }) {
+  if (!moved) return null
+  return <p className="muted small">The chosen dates are outside the computed data, so the first two weeks of the data are shown.</p>
 }

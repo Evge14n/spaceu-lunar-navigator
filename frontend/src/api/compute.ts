@@ -95,8 +95,14 @@ export function nextTransition(tl: Timeline, body: Body, t: number, ms = timesMs
   const flags = visibleFlags(tl, body)
   let i = 0
   while (i < ms.length - 1 && ms[i + 1] <= t) i++
-  const up = flags[i]
-  for (let k = i; k < ms.length - 1; k++) {
+  let up = flags[i]
+  let k0 = i
+  // t may fall after a crossing inside the current sample interval
+  if (i < ms.length - 1 && flags[i + 1] !== up && t >= crossing(tl, body, ms, i)) {
+    up = flags[i + 1]
+    k0 = i + 1
+  }
+  for (let k = k0; k < ms.length - 1; k++) {
     if (flags[k + 1] !== up) {
       const at = Math.max(t, crossing(tl, body, ms, k))
       return { up, at, hours: (at - t) / HOUR }
@@ -149,8 +155,10 @@ export function summarize(
   const earthUp = visibleFlags(tl, 'earth')
   const sunRuns = runs(sunUp, i0, i1)
   const earthRuns = runs(earthUp, i0, i1)
+  // a run of k samples stands for k x step hours, but never more than the period itself
+  const span = (endMs - startMs) / HOUR
   const longest = (rs: typeof sunRuns, v: boolean) =>
-    rs.filter((r) => r.value === v).reduce((m, r) => Math.max(m, (r.i1 - r.i0 + 1) * step), 0)
+    Math.min(span, rs.filter((r) => r.value === v).reduce((m, r) => Math.max(m, (r.i1 - r.i0 + 1) * step), 0))
   let lit = 0
   let seen = 0
   let maxEl = -90
@@ -236,12 +244,15 @@ export function horizonAt(elevation: number[], stepDeg: number, azDeg: number): 
 
 /** Hours formatted for people: "3 h", "2 d 4 h". */
 export function formatHours(h: number | null): string {
-  if (h === null || !Number.isFinite(h)) return 'not in data'
+  if (h === null || Number.isNaN(h)) return 'not in data'
+  if (h === Infinity) return 'not within data'
   if (h === 0) return '0 h'
-  if (h < 1) return `${Math.max(0, Math.round(h * 60))} min`
-  if (h < 48) return `${Math.round(h)} h`
-  const d = Math.floor(h / 24)
-  return `${d} d ${Math.round(h - d * 24)} h`
+  const min = Math.max(0, Math.round(h * 60))
+  if (min < 60) return `${min} min`
+  const hours = Math.round(h)
+  if (hours < 48) return `${hours} h`
+  const d = Math.floor(hours / 24)
+  return `${d} d ${hours - d * 24} h`
 }
 
 /** "Sunset in 5 h" / "No sunset in the data". */

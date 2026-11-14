@@ -28,8 +28,14 @@ function useTerrainGeometry(terrain: Terrain) {
 /** Height at the tile centre (the site), metres. */
 export function centreHeight(terrain: Terrain): number {
   const { n } = terrain.meta
-  const c = Math.floor(n / 2)
-  return terrain.heights[c * n + c]
+  const h = terrain.heights
+  if (n % 2 === 1) {
+    const c = (n - 1) / 2
+    return h[c * n + c]
+  }
+  const a = n / 2 - 1
+  const b = n / 2
+  return (h[a * n + a] + h[a * n + b] + h[b * n + a] + h[b * n + b]) / 4
 }
 
 function TerrainMesh({ terrain }: { terrain: Terrain }) {
@@ -99,13 +105,18 @@ function Stars() {
   )
 }
 
-function Bodies({ sky, eyeY, enlarge }: { sky: Sky; eyeY: number; enlarge: number }) {
-  const s = new THREE.Vector3(...sky.sun.dir).multiplyScalar(SKY_R).add(new THREE.Vector3(0, eyeY, 0))
-  const e = new THREE.Vector3(...sky.earth.dir).multiplyScalar(SKY_R).add(new THREE.Vector3(0, eyeY, 0))
+/** Sun, Earth and stars ride with the camera: they are effectively at infinity, so their
+ * direction is the same from any viewpoint (no fake parallax against the terrain). */
+function SkyDome({ sky, enlarge }: { sky: Sky; enlarge: number }) {
+  const group = useRef<THREE.Group>(null)
+  useFrame(({ camera }) => group.current?.position.copy(camera.position))
+  const s = new THREE.Vector3(...sky.sun.dir).multiplyScalar(SKY_R)
+  const e = new THREE.Vector3(...sky.earth.dir).multiplyScalar(SKY_R)
   const rs = SKY_R * Math.tan((sky.sun.angular_radius_deg * enlarge * Math.PI) / 180)
   const re = SKY_R * Math.tan((sky.earth.angular_radius_deg * enlarge * Math.PI) / 180)
   return (
-    <>
+    <group ref={group}>
+      <Stars />
       <mesh position={s}>
         <sphereGeometry args={[rs, 32, 16]} />
         <meshBasicMaterial color="#fff4d6" />
@@ -119,7 +130,7 @@ function Bodies({ sky, eyeY, enlarge }: { sky: Sky; eyeY: number; enlarge: numbe
       </mesh>
       <Label text="Sun" color="#f2b84b" position={s} offsetY={0.9} />
       <Label text="Earth" color="#7fb0f0" position={e} offsetY={0.9} />
-    </>
+    </group>
   )
 }
 
@@ -186,7 +197,7 @@ function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
       <directionalLight
         ref={ref}
         position={pos}
-        intensity={sky.sun.el > -1 ? 3.2 : 0}
+        intensity={3.2 * sky.sun.visible_fraction}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-7000}
@@ -217,30 +228,52 @@ function Compass({ eyeY }: { eyeY: number }) {
 
 export type CameraMode = 'site' | 'overview'
 
-function CameraRig({ mode, eyeY, lookDir }: { mode: CameraMode; eyeY: number; lookDir: [number, number, number] }) {
+function CameraRig({
+  mode,
+  eyeY,
+  lookDir,
+  resetKey,
+}: {
+  mode: CameraMode
+  eyeY: number
+  lookDir: [number, number, number]
+  resetKey: string
+}) {
   const { camera, gl } = useThree()
-  const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl])
-  useEffect(() => () => controls.dispose(), [controls])
-  useFrame(() => controls.update())
+  const controls = useRef<OrbitControls | null>(null)
+  const latestLook = useRef(lookDir)
+  latestLook.current = lookDir
+  // Created in an effect so StrictMode's test unmount/remount reconnects the listeners.
   useEffect(() => {
-    const c = controls
+    const c = new OrbitControls(camera, gl.domElement)
+    controls.current = c
+    return () => {
+      c.dispose()
+      controls.current = null
+    }
+  }, [camera, gl])
+  useFrame(() => controls.current?.update())
+  // Move the camera only when the mode, the target body or the site changes, not on every time step.
+  useEffect(() => {
+    const c = controls.current
+    if (!c) return
+    const d = latestLook.current
     c.enablePan = mode === 'overview'
     c.rotateSpeed = mode === 'site' ? -0.35 : 0.6
     c.maxPolarAngle = mode === 'overview' ? Math.PI / 2.05 : Math.PI
     if (mode === 'site') {
-      c.target.set(lookDir[0] * 50, eyeY + lookDir[1] * 50, lookDir[2] * 50)
-      camera.position.set(-lookDir[0] * 0.5, eyeY - lookDir[1] * 0.5, -lookDir[2] * 0.5)
+      c.target.set(d[0] * 50, eyeY + d[1] * 50, d[2] * 50)
+      camera.position.set(-d[0] * 0.5, eyeY - d[1] * 0.5, -d[2] * 0.5)
       c.minDistance = 0.1
       c.maxDistance = 200
     } else {
-      camera.position.set(-lookDir[0] * 6000, eyeY + 1800, -lookDir[2] * 6000)
+      camera.position.set(-d[0] * 6000, eyeY + 1800, -d[2] * 6000)
       c.target.set(0, eyeY, 0)
       c.minDistance = 500
       c.maxDistance = 20_000
     }
     c.update()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controls, mode, eyeY, lookDir[0], lookDir[2]])
+  }, [camera, mode, eyeY, resetKey])
   return null
 }
 
@@ -252,7 +285,9 @@ export function Scene({
   enlarge,
   exaggeration,
   lookDir,
+  resetKey,
 }: {
+  resetKey: string
   terrain: Terrain
   horizon: Horizon | null
   sky: Sky
@@ -275,18 +310,17 @@ export function Scene({
       <ambientLight intensity={0.22} color="#9fb7ff" />
       <hemisphereLight args={['#1a2238', '#000000', 0.12]} />
       <SunLight sky={sky} eyeY={eyeY} />
-      <Stars />
       <group scale={[1, exaggeration, 1]}>
         <TerrainMesh terrain={terrain} />
       </group>
       {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={((terrain.meta.min_h ?? h0) - 3) * exaggeration} />}
-      <Bodies sky={sky} eyeY={eyeY} enlarge={enlarge} />
+      <SkyDome sky={sky} enlarge={enlarge} />
       <Compass eyeY={eyeY} />
       <mesh position={[0, eyeY - 1, 0]}>
         <cylinderGeometry args={[mode === 'overview' ? 40 : 0.05, mode === 'overview' ? 40 : 0.05, mode === 'overview' ? 300 : 2, 12]} />
         <meshBasicMaterial color="#ffb547" />
       </mesh>
-      <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} />
+      <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} resetKey={resetKey} />
     </Canvas>
     </div>
   )
