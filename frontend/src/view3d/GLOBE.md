@@ -11,7 +11,8 @@ Files, all under `src/view3d/`:
 | `GlobePage.tsx` | the sheet: pin, coordinates, site markers, time slider, orientation check |
 | `globe/GlobeScene.tsx` | the three.js scene: model or sphere, Sun light, markers, tap to pick |
 | `globe/frame.ts` | lat/lon ↔ scene directions, the inverse transform a tap needs, the constants |
-| `globe/heights.ts` | where the height of the ground comes from, in three tiers |
+| `globe/heights.ts` | where the height of the ground comes from, in four tiers |
+| `globe/modelHeights.ts` + `globe/modelGrid.ts` | relief read out of the model's own vertices, kept for sheet 04 |
 | `globe/tile.ts` | the local terrain tile for any point (row 0 north, curvature included) |
 | `globe/mask.ts` | the 720-direction horizon mask for any point |
 | `globe/route.ts` | which pipeline a site id goes through |
@@ -41,9 +42,9 @@ What the page does with it, and what it therefore assumes:
   `GLOBE_RELIEF_EXAGGERATION` only affects what the page draws itself (pins, markers). Real lunar
   relief is 0.6 % of the radius, so a model with true heights looks like a smooth ball — that is
   correct, not a bug.
-- **Compression.** meshopt is decoded out of the box (`MeshoptDecoder`). Draco only works if the
-  decoder is next to the site, at `public/draco/`; without it the page falls back to a sphere and
-  says so. Prefer meshopt.
+- **Compression.** meshopt and Draco are both decoded out of the box: three ships the Draco
+  decoder and the build emits it next to the site (about 840 kB that is fetched only if a model
+  actually needs it). meshopt is still the lighter choice.
 - **If the file is missing or unreadable**: a plain sphere stands in (textured from
   `public/moon/moon.webp`, `moon.jpg`, or `moon-1024.webp` on phones, if any of them is there),
   with a small notice. Nothing else on the sheet changes: the Sun, the picking and the coordinates
@@ -74,13 +75,20 @@ the part that depends on what is published, and the page always says which of th
 |---|---|---|---|
 | `lola240` | latitude ≤ −83° (inside `data/dem240.bin`) | the real LOLA model, 240 m pixels, 10 × 10 km tile, full 150 km horizon mask | "LOLA 240 m terrain" |
 | `global` | a whole-Moon grid is published at `public/moon/height.json` | real relief anywhere, kilometres per pixel, wider tile | "Coarse terrain from the global model" + a notice |
-| `sphere` | neither | smooth sphere of 1737.4 km; the skyline is the geometric horizon | "No elevation model for this point" + a notice |
+| `model` | the globe sheet was open and `moon.glb` turned out to be a displaced mesh | the model's own relief, about one sample per several kilometres | "Coarse terrain from the global model" + a notice naming the model |
+| `sphere` | none of the above | smooth sphere of 1737.4 km; the skyline is the geometric horizon | "No elevation model for this point" + a notice |
 
 It is never called LOLA 20 m data, which is what the ten prepared sites have.
 
-Note what the model file is *not*: a GLB built as a sphere with a texture carries no heights at
-all, and even a displaced mesh of a few hundred thousand triangles is about 10 km per vertex —
-too coarse to stand on. The relief of a custom point comes from the grids above, not from the GLB.
+About the `model` tier: when the globe sheet is open, every vertex of the loaded GLB is read into
+an equirectangular grid (`modelHeights.ts`) — latitude, longitude and metres above the sphere —
+and kept for the rest of the session, so sheet 04 can use it without loading the GLB again. Two
+things to know. A GLB that is a sphere with a texture carries no heights: all its vertices sit at
+the same radius, the spread comes out below `MIN_RELIEF_M` (300 m) and the grid is dropped. And
+even a displaced mesh of a few hundred thousand vertices is several kilometres per sample, so it
+shows massifs and crater walls, never a ridge you could land next to. Opening
+`#/horizon?site=custom:…` from a shared link without passing through the globe sheet falls back to
+the next tier, because nothing has read the model yet.
 
 ### The optional whole-Moon height grid
 

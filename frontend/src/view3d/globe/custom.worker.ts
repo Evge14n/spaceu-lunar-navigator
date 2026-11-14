@@ -7,7 +7,7 @@
 // Out: { tile..., mask, source..., timeline? } or { error }
 
 import { localTimeline, type Ephem } from '../../api/local'
-import { bestField, type HeightField } from './heights'
+import { bestField, type EquirectGrid, type HeightField } from './heights'
 import { horizonMaskAt, MASK_STEP_DEG } from './mask'
 import { buildTile, tileSizeM } from './tile'
 
@@ -19,6 +19,8 @@ interface Request {
   dataBase: string
   siteBase: string
   needSky: boolean
+  /** heights read off the globe model, when the globe sheet has them (modelHeights.ts) */
+  modelGrid?: EquirectGrid | null
 }
 
 let fields: Promise<HeightField> | null = null
@@ -60,14 +62,14 @@ async function loadEphemeris(dataBase: string): Promise<Ephem | null> {
 }
 
 self.onmessage = async (ev: MessageEvent<Request>) => {
-  const { lat, lon, heightM, n, dataBase, siteBase, needSky } = ev.data
+  const { lat, lon, heightM, n, dataBase, siteBase, needSky, modelGrid } = ev.data
   const post = (msg: Record<string, unknown>, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(msg, transfer)
   try {
     // the heavy files (dem240 is 6.3 MB) are kept while the worker lives
-    const key = `${lat <= -83 ? 'polar' : 'global'}|${dataBase}|${siteBase}`
+    const key = `${lat <= -83 ? 'polar' : 'global'}|${dataBase}|${siteBase}|${modelGrid ? modelGrid.width : 0}`
     if (!fields || fieldKey !== key) {
       fieldKey = key
-      fields = bestField(lat, lon, dataBase, siteBase)
+      fields = bestField(lat, lon, dataBase, siteBase, modelGrid)
     }
     const field = await fields
     const sizeM = tileSizeM(field.pixelM)

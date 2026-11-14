@@ -13,6 +13,9 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { Site, Vec3 } from '../../api'
+import { fileExists } from './heights'
+import { sampleModelHeights } from './modelHeights'
+import type { ModelGrid } from './modelGrid'
 import {
   dirFromLatLon,
   GLOBE_RADIUS,
@@ -41,14 +44,7 @@ export type ModelState =
   | { kind: 'sphere'; texture: THREE.Texture | null; reason: string }
 
 async function firstThatExists(urls: string[]): Promise<string | null> {
-  for (const url of urls) {
-    try {
-      const r = await fetch(url, { method: 'HEAD' })
-      if (r.ok && !(r.headers.get('content-type') ?? '').includes('text/html')) return url
-    } catch {
-      /* try the next one */
-    }
-  }
+  for (const url of urls) if (await fileExists(url)) return url
   return null
 }
 
@@ -101,8 +97,9 @@ function useGlobeModel(): ModelState {
       try {
         const loader = new GLTFLoader()
         loader.setMeshoptDecoder(MeshoptDecoder)
-        // only used when the model is Draco-compressed and the decoder was put next to the site
-        const draco = new DRACOLoader().setDecoderPath(`${BASE}draco/`)
+        // Draco models work too: three ships the decoder and Vite emits it next to the site,
+        // fetched only if a model actually needs it
+        const draco = new DRACOLoader()
         loader.setDRACOLoader(draco)
         const gltf = await loader.loadAsync(url)
         draco.dispose()
@@ -112,7 +109,7 @@ function useGlobeModel(): ModelState {
         setState({ kind: 'model', object: created, url, triangles })
       } catch (e) {
         const msg = (e as Error).message || 'the model could not be read'
-        await sphere(/draco/i.test(msg) ? 'the model needs the Draco decoder' : msg)
+        await sphere(msg)
       }
     })()
     return () => {
@@ -129,8 +126,19 @@ function useGlobeModel(): ModelState {
 }
 
 /** Scale and orient the model so that it is a unit sphere in the scene frame. */
-function ModelGlobe({ object, frame, spin, onTap }: { object: THREE.Object3D; frame: ModelFrame; spin: number; onTap: (e: ThreeEvent<PointerEvent>) => void }) {
-  const group = useRef<THREE.Group>(null)
+function ModelGlobe({
+  object,
+  frame,
+  spin,
+  onTap,
+  onHeights,
+}: {
+  object: THREE.Object3D
+  frame: ModelFrame
+  spin: number
+  onTap: (e: ThreeEvent<PointerEvent>) => void
+  onHeights: (g: ModelGrid | null) => void
+}) {
   const fit = useMemo(() => {
     const box = new THREE.Box3().setFromObject(object)
     const sphere = box.getBoundingSphere(new THREE.Sphere())
@@ -142,8 +150,15 @@ function ModelGlobe({ object, frame, spin, onTap }: { object: THREE.Object3D; fr
     const mat = new THREE.Matrix4().set(m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1)
     return new THREE.Quaternion().setFromRotationMatrix(mat)
   }, [frame, spin])
+  // Once the model is on screen, read its vertices into a height grid (modelHeights.ts). It is
+  // the only relief a custom point has away from the pole unless a grid is published; a textured
+  // ball gives null and the 3D view says "no elevation model". Re-read when the model is turned.
+  useEffect(() => {
+    const id = window.setTimeout(() => onHeights(sampleModelHeights(object, modelMatrix(frame, spin), fit.centre, fit.scale)), 400)
+    return () => window.clearTimeout(id)
+  }, [object, frame, spin, fit, onHeights])
   return (
-    <group ref={group} quaternion={quat} scale={fit.scale} onPointerDown={onTap} onPointerUp={onTap}>
+    <group quaternion={quat} scale={fit.scale} onPointerDown={onTap} onPointerUp={onTap}>
       <group position={[-fit.centre.x, -fit.centre.y, -fit.centre.z]}>
         <primitive object={object} />
       </group>
@@ -266,13 +281,15 @@ export interface GlobeSceneProps {
   frame: ModelFrame
   spin: number
   onModel: (m: ModelSummary) => void
+  /** relief found in the model, or null when it is a smooth ball */
+  onHeights: (g: ModelGrid | null) => void
   focus: { dir: [number, number, number]; distance: number; key: number } | null
 }
 
 const TAP_PX = 8
 const TAP_MS = 600
 
-export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, onPickSite, showOrientation, frame, spin, onModel, focus }: GlobeSceneProps) {
+export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, onPickSite, showOrientation, frame, spin, onModel, onHeights, focus }: GlobeSceneProps) {
   const model = useGlobeModel()
   useEffect(() => onModel(summarize(model)), [model, onModel])
   const down = useRef<{ x: number; y: number; t: number } | null>(null)
@@ -304,7 +321,7 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
         <ambientLight intensity={0.07} color="#9fb0c8" />
         <directionalLight position={[sun[0] * 12, sun[1] * 12, sun[2] * 12]} intensity={3.0} />
         {model.kind === 'model' ? (
-          <ModelGlobe object={model.object} frame={frame} spin={spin} onTap={onTap} />
+          <ModelGlobe object={model.object} frame={frame} spin={spin} onTap={onTap} onHeights={onHeights} />
         ) : model.kind === 'sphere' ? (
           <SphereGlobe texture={model.texture} onTap={onTap} />
         ) : null}

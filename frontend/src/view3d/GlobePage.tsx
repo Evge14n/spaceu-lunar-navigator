@@ -2,13 +2,14 @@
 // The model and the picking live in globe/GlobeScene.tsx; the frame, the inverse transform and
 // the constants are in globe/frame.ts; what the model has to satisfy is in GLOBE.md next to this file.
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { customId, meToScene, toLatLon, useSites, useSunDirection, type Site } from '../api'
 import { TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
 import { dateTimeUtc, latLon as fmtLatLon, siteNo } from '../format'
 import { useAppState } from '../state'
+import { DEM240_LAT_LIMIT, fileExists } from './globe/heights'
 import {
   dirFromLatLon,
   distanceKm,
@@ -71,10 +72,42 @@ export default function GlobePage() {
   const [orientation, setOrientation] = useState(loadOrientation)
   const [showOrientation, setShowOrientation] = useState(false)
   const [focus, setFocus] = useState<{ dir: [number, number, number]; distance: number; key: number } | null>(null)
+  const [hasGrid, setHasGrid] = useState<boolean | null>(null)
+  const [fromModel, setFromModel] = useState<{ spreadM: number; label: string } | null>(null)
   const focusKey = useRef(0)
-  const liveRef = useRef<HTMLParagraphElement>(null)
+  const started = useRef(false)
 
   useEffect(() => saveOrientation(orientation), [orientation])
+
+  // is a whole-Moon height grid published next to the site? (GLOBE.md); one HEAD, once
+  useEffect(() => {
+    let live = true
+    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')
+    fileExists(`${base}moon/height.json`).then((ok) => live && setHasGrid(ok))
+    return () => {
+      live = false
+    }
+  }, [])
+
+  // arriving with a point already chosen (a shared link, or coming back from sheet 04):
+  // show it on the globe instead of an empty pin
+  useEffect(() => {
+    if (started.current || !siteId) return
+    const c = siteId.startsWith('custom:') ? siteId.slice(7).split(',').map(Number) : null
+    if (c && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
+      started.current = true
+      place(c[0], c[1])
+      return
+    }
+    const s = list.find((x) => x.id === siteId)
+    if (s && s.lat !== null && s.lon !== null) {
+      started.current = true
+      place(s.lat, s.lon)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteId, list])
+
+  const onHeights = useCallback((g: { spreadM: number; label: string } | null) => setFromModel(g ? { spreadM: g.spreadM, label: g.label } : null), [])
 
   const place = (lat: number, lon: number) => {
     const p = { lat: roundCoord(lat), lon: roundCoord(normalizeLon(lon)) }
@@ -97,6 +130,15 @@ export default function GlobePage() {
   const typed = { lat: Number(text.lat), lon: Number(text.lon) }
   const typedOk = text.lat.trim() !== '' && text.lon.trim() !== '' && Number.isFinite(typed.lat) && Number.isFinite(typed.lon) && Math.abs(typed.lat) <= 90 && typed.lon >= -180 && typed.lon <= 360
 
+  const terrainTier = !pin
+    ? null
+    : pin.lat <= DEM240_LAT_LIMIT
+      ? 'LOLA 240 m model'
+      : hasGrid
+        ? 'coarse global grid'
+        : fromModel
+          ? 'coarse, read off this model'
+          : 'no model: smooth sphere'
   const near = pin ? nearestSite(list, pin.lat, pin.lon) : null
   /** within a tile of a prepared site: use its full-quality data instead of a custom point */
   const samePrepared = near && near.km < 5 ? near.site : null
@@ -146,13 +188,14 @@ export default function GlobePage() {
               frame={orientation.frame}
               spin={orientation.spin}
               onModel={setModel}
+              onHeights={onHeights}
               focus={focus}
             />
           </Suspense>
         </div>
 
         <div className="status">
-          <p ref={liveRef} aria-live="polite">
+          <p aria-live="polite">
             <b>Picked</b>{' '}
             {pin ? (
               <>
@@ -164,10 +207,20 @@ export default function GlobePage() {
             )}
           </p>
           <p>
-            <b className="sun-t">Sun overhead at</b> {sub ? fmtLatLon(sub[0], sub[1]) : '…'} / <b>lit side</b> faces it
+            <b className="sun-t">Sun overhead at</b> {sub ? fmtLatLon(sub[0], sub[1]) : '…'}
+          </p>
+          <p>
+            <b>Terrain there</b> {samePrepared ? 'LOLA 5 m site model' : (terrainTier ?? '—')} / <b>Sun and Earth</b> always exact
           </p>
         </div>
       </section>
+
+      {fromModel && (
+        <p className="label">
+          Relief found in this model: {(fromModel.spreadM / 1000).toFixed(1)} km from the lowest point to the highest. Away from the south pole, your own points borrow it —
+          coarsely, and the 3D sheet says so.
+        </p>
+      )}
 
       {modelNote && (
         <Notice title="Globe model">
