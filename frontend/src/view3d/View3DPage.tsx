@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  formatHours,
   nextTransition,
+  riseSet,
   skyAt,
   timesMs,
   useHorizon,
@@ -94,11 +94,11 @@ export default function View3DPage() {
         <div className="hud" aria-live="polite">
           <p className="hud-sun">
             <b>Sun</b> {sky.sun.el.toFixed(2)}° high, az {sky.sun.az.toFixed(0)}° ·{' '}
-            {sunTr.up ? `sets in ${formatHours(sunTr.hours)}` : `hidden, rises in ${formatHours(sunTr.hours)}`}
+            {riseSet(sunTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
           </p>
           <p className="hud-earth">
             <b>Earth</b> {sky.earth.el.toFixed(2)}°, az {sky.earth.az.toFixed(0)}° ·{' '}
-            {earthTr.up ? `sets in ${formatHours(earthTr.hours)}` : `hidden, rises in ${formatHours(earthTr.hours)}`}
+            {riseSet(earthTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
           </p>
         </div>
       </div>

@@ -2,7 +2,7 @@
 // Terrain: n x n heights, row 0 = north edge. Sun and Earth sit on a sky sphere in their true
 // directions; their discs have the true angular size unless `enlarge` > 1.
 
-import { Html, OrbitControls } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -42,7 +42,7 @@ function TerrainMesh({ terrain }: { terrain: Terrain }) {
 }
 
 /** Far terrain from the horizon mask: a ring "wall" at FAR_R whose top matches the mask angle. */
-function FarHorizon({ horizon, eyeY }: { horizon: Horizon; eyeY: number }) {
+function FarHorizon({ horizon, eyeY, groundY }: { horizon: Horizon; eyeY: number; groundY: number }) {
   const geo = useMemo(() => {
     const n = horizon.elevation_deg.length
     const pos: number[] = []
@@ -52,7 +52,7 @@ function FarHorizon({ horizon, eyeY }: { horizon: Horizon; eyeY: number }) {
       const el = horizon.elevation_deg[i % n]
       const [dx, , dz] = dirFromAzEl(az, 0)
       const top = eyeY + FAR_R * Math.tan((el * Math.PI) / 180)
-      pos.push(dx * FAR_R, Math.min(top, eyeY) - 4000, dz * FAR_R, dx * FAR_R, top, dz * FAR_R)
+      pos.push(dx * FAR_R, groundY, dz * FAR_R, dx * FAR_R, Math.max(top, groundY + 1), dz * FAR_R)
       if (i < n) {
         const a = i * 2
         idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
@@ -63,11 +63,17 @@ function FarHorizon({ horizon, eyeY }: { horizon: Horizon; eyeY: number }) {
     g.setIndex(idx)
     g.computeVertexNormals()
     return g
-  }, [horizon, eyeY])
+  }, [horizon, eyeY, groundY])
   return (
-    <mesh geometry={geo}>
-      <meshBasicMaterial color="#34322f" side={THREE.DoubleSide} />
-    </mesh>
+    <>
+      <mesh geometry={geo}>
+        <meshBasicMaterial color="#2c2a27" side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, groundY, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <ringGeometry args={[100, FAR_R, 96]} />
+        <meshStandardMaterial color="#45433f" roughness={1} />
+      </mesh>
+    </>
   )
 }
 
@@ -111,13 +117,42 @@ function Bodies({ sky, eyeY, enlarge }: { sky: Sky; eyeY: number; enlarge: numbe
         <sphereGeometry args={[re, 48, 24]} />
         <meshStandardMaterial color="#5b8fd9" emissive="#0d1a2e" roughness={0.6} />
       </mesh>
-      <Html position={s} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-        <span className="sky-tag sun">Sun</span>
-      </Html>
-      <Html position={e} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-        <span className="sky-tag earth">Earth</span>
-      </Html>
+      <Label text="Sun" color="#f2b84b" position={s} offsetY={0.9} />
+      <Label text="Earth" color="#7fb0f0" position={e} offsetY={0.9} />
     </>
+  )
+}
+
+const labelCache = new Map<string, THREE.Texture>()
+function labelTexture(text: string, color: string) {
+  const key = text + color
+  let t = labelCache.get(key)
+  if (!t) {
+    const c = document.createElement('canvas')
+    c.width = 256
+    c.height = 64
+    const g = c.getContext('2d')!
+    g.font = '600 34px Inter, system-ui, sans-serif'
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.lineWidth = 8
+    g.strokeStyle = 'rgba(5,6,10,0.85)'
+    g.strokeText(text, 128, 32)
+    g.fillStyle = color
+    g.fillText(text, 128, 32)
+    t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    labelCache.set(key, t)
+  }
+  return t
+}
+
+/** Text that always faces the camera and keeps a constant size on screen. */
+function Label({ text, color, position, offsetY = 0 }: { text: string; color: string; position: THREE.Vector3 | [number, number, number]; offsetY?: number }) {
+  return (
+    <sprite position={position} scale={[0.15, 0.0375, 1]} center={new THREE.Vector2(0.5, -offsetY)} renderOrder={10}>
+      <spriteMaterial map={labelTexture(text, color)} transparent depthTest={false} depthWrite={false} sizeAttenuation={false} />
+    </sprite>
   )
 }
 
@@ -174,11 +209,7 @@ function Compass({ eyeY }: { eyeY: number }) {
     <>
       {items.map(([l, az]) => {
         const [x, , z] = dirFromAzEl(az, 0)
-        return (
-          <Html key={l} position={[x * r, eyeY + 40, z * r]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
-            <span className="compass">{l}</span>
-          </Html>
-        )
+        return <Label key={l} text={l} color="#c9c6bf" position={[x * r, eyeY + 40, z * r]} />
       })}
     </>
   )
@@ -237,24 +268,24 @@ export function Scene({
   lookDir: [number, number, number]
 }) {
   const h0 = centreHeight(terrain) * exaggeration
-  const eyeY = h0 + 2 * Math.max(1, exaggeration === 1 ? 1 : 1)
+  const eyeY = h0 + 2
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       dpr={[1, 2]}
       camera={{ fov: 55, near: 0.3, far: 250_000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
       aria-label="3D view of the terrain around the site with the Sun and the Earth"
     >
-      <ambientLight intensity={0.06} color="#9fb7ff" />
+      <ambientLight intensity={0.22} color="#9fb7ff" />
       <hemisphereLight args={['#1a2238', '#000000', 0.12]} />
       <SunLight sky={sky} eyeY={eyeY} />
       <Stars />
       <group scale={[1, exaggeration, 1]}>
         <TerrainMesh terrain={terrain} />
       </group>
-      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} />}
+      {horizon && <FarHorizon horizon={horizon} eyeY={eyeY} groundY={((terrain.meta.min_h ?? h0) - 3) * exaggeration} />}
       <Bodies sky={sky} eyeY={eyeY} enlarge={enlarge} />
       <Compass eyeY={eyeY} />
       <mesh position={[0, eyeY - 1, 0]}>

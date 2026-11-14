@@ -237,8 +237,15 @@ export function horizonAt(elevation: number[], stepDeg: number, azDeg: number): 
 /** Hours formatted for people: "3 h", "2 d 4 h". */
 export function formatHours(h: number | null): string {
   if (h === null || !Number.isFinite(h)) return 'not in data'
+  if (h === 0) return '0 h'
   if (h < 1) return `${Math.max(0, Math.round(h * 60))} min`
   if (h < 48) return `${Math.round(h)} h`
   const d = Math.floor(h / 24)
   return `${d} d ${Math.round(h - d * 24)} h`
+}
+
+/** "Sunset in 5 h" / "No sunset in the data". */
+export function riseSet(tr: Transition, upText: string, downText: string, upNone: string, downNone: string) {
+  if (tr.hours === null) return tr.up ? upNone : downNone
+  return `${tr.up ? upText : downText} ${formatHours(tr.hours)}`
 }

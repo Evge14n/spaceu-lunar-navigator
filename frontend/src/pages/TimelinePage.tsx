@@ -21,11 +21,22 @@ import {
   useSites,
   useTimeline,
   visibleFlags,
+  riseSet,
   type Timeline,
 } from '../api'
 import { clampPeriod, fmtUtc, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { useAppState } from '../state'
+
+/** One tick per day (or every few days for long periods), at 00:00 UTC. */
+function dayTicks(from: number, to: number): number[] {
+  const day = 86_400_000
+  const days = (to - from) / day
+  const every = days <= 16 ? 1 : days <= 40 ? 2 : days <= 100 ? 7 : 30
+  const out: number[] = []
+  for (let t = Math.ceil(from / day) * day; t <= to; t += every * day) out.push(t)
+  return out
+}
 
 const fmtTick = (t: number) => {
   const d = new Date(t)
@@ -121,7 +132,7 @@ export default function TimelinePage() {
       <section className="readout" aria-live="polite" aria-label="At the selected time">
         <div className="read read-sun">
           <h2>Sun</h2>
-          <p className="big">{sunTr.up ? `Sunset in ${formatHours(sunTr.hours)}` : `Below the horizon, sunrise in ${formatHours(sunTr.hours)}`}</p>
+          <p className="big">{riseSet(sunTr, 'Sunset in', 'Below the terrain, sunrise in', 'No sunset in the data', 'No sunrise in the data')}</p>
           <dl>
             <dt>Elevation</dt><dd>{sky.sun.el.toFixed(2)}°</dd>
             <dt>Terrain in that direction</dt><dd>{sky.sun.horizon_el.toFixed(2)}°</dd>
@@ -131,7 +142,7 @@ export default function TimelinePage() {
         </div>
         <div className="read read-earth">
           <h2>Earth</h2>
-          <p className="big">{earthTr.up ? `Earthset in ${formatHours(earthTr.hours)}` : `Hidden, Earthrise in ${formatHours(earthTr.hours)}`}</p>
+          <p className="big">{riseSet(earthTr, 'Earthset in', 'Hidden, Earthrise in', 'No Earthset in the data', 'No Earthrise in the data')}</p>
           <dl>
             <dt>Elevation</dt><dd>{sky.earth.el.toFixed(2)}°</dd>
             <dt>Terrain in that direction</dt><dd>{sky.earth.horizon_el.toFixed(2)}°</dd>
@@ -163,7 +174,7 @@ export default function TimelinePage() {
             }}
           >
             <CartesianGrid stroke="var(--grid)" vertical={false} />
-            <XAxis dataKey="t" type="number" domain={[view.f, view.e]} scale="time" tickFormatter={fmtTick} stroke="var(--ink-3)" tick={{ fontSize: 12 }} minTickGap={24} />
+            <XAxis dataKey="t" type="number" domain={[view.f, view.e]} scale="time" ticks={dayTicks(view.f, view.e)} tickFormatter={fmtTick} stroke="var(--ink-3)" tick={{ fontSize: 12 }} minTickGap={16} />
             <YAxis unit="°" stroke="var(--ink-3)" tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
             <Tooltip
               labelFormatter={(v) => fmtUtc(Number(v))}
