@@ -7,6 +7,8 @@ NAIF SPICE kernels ──► ephem.py ──────────────
                                                ├─► metrics.py ─► precompute.py ─► data/*.json, *.bin
 LOLA elevation models ─► terrain.py ─► horizon.py ┘                    │
 LOLA illumination maps ─► sites.py (site points), validate.py          └─► api.py (FastAPI, same shapes)
+
+ephem.py + terrain.py ─► browser.py ─► data/ephem/*, data/dem240.* (any point computed in the browser)
 ```
 
 | File | What it does |
@@ -17,7 +19,8 @@ LOLA illumination maps ─► sites.py (site points), validate.py          └�
 | `sites.py` | The ten sites: NASA 5 m site models and the rule that picks the point inside each |
 | `metrics.py` | Visible share of the solar and Earth discs above the mask, lit and visible percentages, rise and set moments, longest darkness, sunlight on a panel in W/m2 |
 | `precompute.py` | Writes everything in `data/` |
-| `validate.py` | Compares our illumination with the NASA LOLA maps (docs/VALIDATION.md) |
+| `validate.py` | Compares our illumination with the NASA LOLA maps (docs/VALIDATION.md) and writes `data/validation.json` for the Accuracy screen |
+| `browser.py` | Files and reference implementation of the computation a browser does for any point (docs/BROWSER_COMPUTE.md), its test vectors and its comparison with the full computation |
 | `api.py` | The live API of docs/API.md |
 | `fetch_data.py` | Downloads the NASA inputs from their official addresses |
 
@@ -59,6 +62,11 @@ python -m backend.precompute all          # about 15 seconds
 python -m backend.precompute timeline --sites site04,site23     # one step, some sites
 python -m backend.fetch_data validation   # 465 MB: the 60 m LOLA model, used only by the next line
 python -m backend.validate                # about 20 minutes, writes data/validation/
+python -m backend.browser files           # data/ephem/year.bin, sun_distance.bin, data/dem240.bin
+python -m backend.browser vectors         # data/ephem/test_vectors.json
+python -m backend.browser compare         # about 8 minutes: the browser algorithm against the full one
+python -m backend.validate accuracy       # data/validation.json from the tables above
+node data/ephem/check.mjs                 # the JavaScript port against the test vectors
 ```
 
 Steps of `precompute`: `sites` → `terrain` → `horizon` → `timeline` → `map` → `heights` → `reference`. The period (2026-11-14 .. 2027-11-14), the step (1 hour) and the instrument height (2 m) are constants at the top of `precompute.py`. `heights` repeats the year with the instrument at 1, 5 and 10 m (`data/summary/heights.json`), `reference` computes the same year for the Apollo 11 site near the equator (`data/reference/apollo11.json`). The output is deterministic: the tests recompute the files and compare them with what is committed.
@@ -101,4 +109,5 @@ The frontend uses the API only for custom coordinates (`VITE_API_URL=http://loca
 - Light is geometric: no scattering, no light reflected from lit slopes, no penumbra model beyond the visible share of the disc. The disc is uniformly bright (no limb darkening).
 - The panel is assumed to follow the Sun; dust, temperature and degradation of the cells are not modelled.
 - The Earth is "visible" when any part of its disc is above the terrain. A radio link to a particular ground station needs more than that.
-- Terrain farther than 150 km is not considered.
+- Terrain farther than 150 km is not considered. Measured on 480 random points with rays to 400 km: 0.04 pp less light on average, 0.9 pp at most.
+- A point computed in the browser uses one 240 m model and is an estimate; its measured error is in docs/BROWSER_COMPUTE.md.

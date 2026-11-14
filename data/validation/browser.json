@@ -1,0 +1,342 @@
+{
+ "what": "the browser algorithm (one 240 m model) against the full computation; eye at 2 m, 2026-11-14T00:00:00Z .. 2027-11-14T00:00:00Z, hourly; differences are browser minus full",
+ "units": {
+  "lit_percent": "pp",
+  "earth_visible_percent": "pp",
+  "longest_dark_h": "h"
+ },
+ "algorithm": {
+  "first_sample_m": 240.0,
+  "step_m": 120.0,
+  "range_m": 150000.0,
+  "azimuths": 720,
+  "strips": 24
+ },
+ "sites": {
+  "full": "the published summaries: 5 m site models, then the 20, 80 and 120 m models",
+  "n": 10,
+  "lit_percent": {
+   "n": 10,
+   "bias": -5.26,
+   "mae": 6.2,
+   "rmse": 12.8,
+   "median_abs": 1.96,
+   "p90_abs": 10.83,
+   "max_abs": 38.75
+  },
+  "longest_dark_h": {
+   "n": 10,
+   "bias": 49.25,
+   "mae": 59.85,
+   "rmse": 113.35,
+   "median_abs": 26.05,
+   "p90_abs": 132.67,
+   "max_abs": 330.4
+  },
+  "earth_visible_percent": {
+   "n": 10,
+   "bias": -1.32,
+   "mae": 3.0,
+   "rmse": 5.35,
+   "median_abs": 1.32,
+   "p90_abs": 6.76,
+   "max_abs": 15.19
+  },
+  "longest_earth_hidden_h": {
+   "n": 10,
+   "bias": 8.69,
+   "mae": 19.45,
+   "rmse": 35.49,
+   "median_abs": 9.45,
+   "p90_abs": 42.81,
+   "max_abs": 102.3
+  }
+ },
+ "pixels": {
+  "full": "the 20 m model, then the 80 and 120 m models (what the live API does for custom coordinates); the sample of Test 2: random pixels of the NASA map inside 85 S, 80 per band of its value",
+  "n": 480,
+  "lit_percent": {
+   "n": 480,
+   "bias": 1.15,
+   "mae": 2.14,
+   "rmse": 5.19,
+   "median_abs": 0.41,
+   "p90_abs": 5.67,
+   "max_abs": 43.02
+  },
+  "longest_dark_h": {
+   "n": 480,
+   "bias": -126.02,
+   "mae": 134.08,
+   "rmse": 602.38,
+   "median_abs": 1.7,
+   "p90_abs": 110.02,
+   "max_abs": 5710.4
+  },
+  "earth_visible_percent": {
+   "n": 480,
+   "bias": 1.2,
+   "mae": 1.59,
+   "rmse": 4.85,
+   "median_abs": 0.06,
+   "p90_abs": 3.86,
+   "max_abs": 43.4
+  },
+  "longest_earth_hidden_h": {
+   "n": 480,
+   "bias": -206.21,
+   "mae": 232.91,
+   "rmse": 1206.12,
+   "median_abs": 0.6,
+   "p90_abs": 41.04,
+   "max_abs": 8265.0
+  },
+  "lit_percent_within_pp": {
+   "1": 61.9,
+   "2": 74.8,
+   "5": 89.2,
+   "10": 94.6,
+   "20": 98.1
+  },
+  "longest_dark_within_h": {
+   "6": 63.5,
+   "24": 80.0,
+   "72": 88.3,
+   "168": 91.9
+  },
+  "earth_visible_within_pp": {
+   "1": 76.9,
+   "2": 84.2,
+   "5": 91.7,
+   "10": 94.8,
+   "20": 98.5
+  },
+  "lit_percent_by_band_of_full": [
+   {
+    "band": "0",
+    "n": 78,
+    "bias": 0.12,
+    "mae": 0.12,
+    "rmse": 0.72,
+    "median_abs": 0.0,
+    "p90_abs": 0.0,
+    "max_abs": 5.9
+   },
+   {
+    "band": "0-25",
+    "n": 158,
+    "bias": 1.78,
+    "mae": 1.79,
+    "rmse": 4.55,
+    "median_abs": 0.3,
+    "p90_abs": 4.89,
+    "max_abs": 27.11
+   },
+   {
+    "band": "25-50",
+    "n": 92,
+    "bias": 1.87,
+    "mae": 1.89,
+    "rmse": 4.56,
+    "median_abs": 0.4,
+    "p90_abs": 4.1,
+    "max_abs": 28.55
+   },
+   {
+    "band": "50-70",
+    "n": 78,
+    "bias": 2.82,
+    "mae": 3.26,
+    "rmse": 6.29,
+    "median_abs": 1.02,
+    "p90_abs": 11.55,
+    "max_abs": 23.73
+   },
+   {
+    "band": "70-100",
+    "n": 74,
+    "bias": -1.75,
+    "mae": 4.13,
+    "rmse": 7.89,
+    "median_abs": 2.51,
+    "p90_abs": 6.89,
+    "max_abs": 43.02
+   }
+  ],
+  "longest_dark_h_by_band_of_full": [
+   {
+    "band": "0",
+    "median_full_h": 8760.0,
+    "n": 78,
+    "bias": -127.5,
+    "mae": 130.79,
+    "rmse": 700.26,
+    "median_abs": 0.0,
+    "p90_abs": 0.0,
+    "max_abs": 4563.0,
+    "within_24h": 94.9
+   },
+   {
+    "band": "0-25",
+    "median_full_h": 2729.0,
+    "n": 158,
+    "bias": -280.99,
+    "mae": 281.27,
+    "rmse": 905.41,
+    "median_abs": 1.45,
+    "p90_abs": 811.73,
+    "max_abs": 5710.4,
+    "within_24h": 81.0
+   },
+   {
+    "band": "25-50",
+    "median_full_h": 518.9,
+    "n": 92,
+    "bias": -17.68,
+    "mae": 18.03,
+    "rmse": 65.57,
+    "median_abs": 2.9,
+    "p90_abs": 31.17,
+    "max_abs": 562.1,
+    "within_24h": 83.7
+   },
+   {
+    "band": "50-70",
+    "median_full_h": 384.0,
+    "n": 78,
+    "bias": -59.03,
+    "mae": 61.53,
+    "rmse": 263.41,
+    "median_abs": 5.45,
+    "p90_abs": 115.51,
+    "max_abs": 2242.1,
+    "within_24h": 71.8
+   },
+   {
+    "band": "70-100",
+    "median_full_h": 220.4,
+    "n": 74,
+    "bias": 1.15,
+    "mae": 44.03,
+    "rmse": 89.75,
+    "median_abs": 13.45,
+    "p90_abs": 135.83,
+    "max_abs": 352.8,
+    "within_24h": 66.2
+   }
+  ],
+  "lit_percent_worst": [
+   {
+    "row": 508,
+    "col": 2602,
+    "lat": -86.00107,
+    "lon": 2.08334,
+    "lit_full": 82.6,
+    "lit_browser": 39.58,
+    "nasa": 79.18
+   },
+   {
+    "row": 508,
+    "col": 2603,
+    "lat": -86.001,
+    "lon": 2.11166,
+    "lit_full": 81.9,
+    "lit_browser": 42.94,
+    "nasa": 75.744
+   },
+   {
+    "row": 525,
+    "col": 2611,
+    "lat": -86.03395,
+    "lon": 2.35799,
+    "lit_full": 32.2,
+    "lit_browser": 60.75,
+    "nasa": 55.784
+   },
+   {
+    "row": 3894,
+    "col": 2341,
+    "lat": -87.27328,
+    "lon": 187.81852,
+    "lit_full": 8.7,
+    "lit_browser": 35.81,
+    "nasa": 4.532
+   },
+   {
+    "row": 1003,
+    "col": 1977,
+    "lat": -86.79118,
+    "lon": 340.12402,
+    "lit_full": 5.9,
+    "lit_browser": 31.3,
+    "nasa": 9.996
+   },
+   {
+    "row": 495,
+    "col": 2455,
+    "lat": -85.9754,
+    "lon": 357.92997,
+    "lit_full": 58.5,
+    "lit_browser": 82.23,
+    "nasa": 73.564
+   }
+  ],
+  "lit_percent_vs_nasa_map": {
+   "n": 480,
+   "bias": 2.5,
+   "mae": 3.19,
+   "rmse": 5.98,
+   "median_abs": 1.29,
+   "p90_abs": 8.65,
+   "max_abs": 39.6
+  },
+  "full_vs_column_product_max_abs": 0.05
+ },
+ "first_sample_study": [
+  {
+   "first_sample_m": 120.0,
+   "n": 480,
+   "bias": 0.14,
+   "mae": 2.52,
+   "rmse": 5.93,
+   "median_abs": 0.45,
+   "p90_abs": 7.37,
+   "max_abs": 49.39,
+   "within_pp": {
+    "2": 71.2,
+    "5": 85.0,
+    "10": 93.5
+   }
+  },
+  {
+   "first_sample_m": 240.0,
+   "n": 480,
+   "bias": 1.15,
+   "mae": 2.14,
+   "rmse": 5.19,
+   "median_abs": 0.41,
+   "p90_abs": 5.67,
+   "max_abs": 43.02,
+   "within_pp": {
+    "2": 74.8,
+    "5": 89.2,
+    "10": 94.6
+   }
+  },
+  {
+   "first_sample_m": 480.0,
+   "n": 480,
+   "bias": 2.15,
+   "mae": 2.4,
+   "rmse": 5.15,
+   "median_abs": 0.46,
+   "p90_abs": 7.27,
+   "max_abs": 29.7,
+   "within_pp": {
+    "2": 71.9,
+    "5": 84.8,
+    "10": 93.5
+   }
+  }
+ ]
+}
