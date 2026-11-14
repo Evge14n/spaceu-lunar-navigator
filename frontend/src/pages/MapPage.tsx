@@ -198,7 +198,7 @@ export default function MapPage() {
               <span>90° E →</span>
             </div>
             <div className="plate" onClick={onPlateClick(view)} role="group" aria-label="Lunar south pole. Click to set your own point.">
-              {layer.data && <img src={layer.data.url} alt="Average illumination of the lunar south pole, brighter means lit for more of the time" draggable={false} />}
+              {layer.data && <img src={layer.data.url} srcSet={layer.data.srcSet} sizes="(max-width: 700px) 100vw, 840px" fetchPriority="high" alt="Average illumination of the lunar south pole, brighter means lit for more of the time" draggable={false} />}
               <svg className="grid" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <g fill="none" stroke="#F7F8F9" strokeOpacity="0.35" strokeWidth="0.15">
                   {rings.map((g) => (
