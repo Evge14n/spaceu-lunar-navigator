@@ -13,15 +13,21 @@ const SKY_R = 60_000
 // smaller shadow map on phones: same look at that size, far less GPU work
 const SHADOW_SIZE: [number, number] =
   typeof window !== 'undefined' && window.innerWidth < 700 ? [1024, 1024] : [2048, 2048]
+const DPR: [number, number] = typeof window !== 'undefined' && window.innerWidth < 700 ? [1, 1.5] : [1, 1.75]
 const FAR_R = 30_000
+
+const SMALL_SCREEN = typeof window !== 'undefined' && window.innerWidth < 700
 
 function useTerrainGeometry(terrain: Terrain) {
   return useMemo(() => {
     const { n, size_m } = terrain.meta
-    const g = new THREE.PlaneGeometry(size_m, size_m, n - 1, n - 1)
+    // phones: every second sample (512 -> 256), a quarter of the vertices, same look at that size
+    const k = SMALL_SCREEN && n > 300 ? 2 : 1
+    const m = Math.floor((n - 1) / k) + 1
+    const g = new THREE.PlaneGeometry(((m - 1) * k * size_m) / (n - 1), ((m - 1) * k * size_m) / (n - 1), m - 1, m - 1)
     g.rotateX(-Math.PI / 2) // plane rows: first row (top) -> z = -size/2 = north
     const pos = g.attributes.position as THREE.BufferAttribute
-    for (let i = 0; i < pos.count; i++) pos.setY(i, terrain.heights[i])
+    for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) pos.setY(r * m + c, terrain.heights[r * k * n + c * k])
     pos.needsUpdate = true
     g.computeVertexNormals()
     return g
@@ -314,7 +320,7 @@ export function Scene({
     <div className="canvas-wrap" role="img" aria-label="3D view of the terrain around the site with the Sun and the Earth">
     <Canvas
       shadows="percentage"
-      dpr={[1, 1.75]}
+      dpr={DPR}
       camera={{ fov: 55, near: 0.3, far: 250_000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
