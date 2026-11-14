@@ -62,7 +62,7 @@ export default function View3DPage() {
       <div className="page-head">
         <h1>3D view</h1>
         <p className="lede">
-          {m ? `${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km` : 'A few kilometres'} of LOLA terrain around the site. Sun and Earth are drawn in their true directions{enlarge === 1 ? ' and true sizes' : `, ${enlarge}× enlarged`}.
+          LOLA terrain around the site. Sun and Earth are drawn in their true directions{enlarge === 1 ? ' and true sizes' : `, ${enlarge}× enlarged`}.
         </p>
       </div>
       <div className="toolbar">
@@ -119,7 +119,7 @@ export default function View3DPage() {
         <TimeSlider from={f} to={e} value={tt} onChange={setTime} />
       </div>
       <p className="source">
-        Drag to look around{mode === 'overview' ? ', scroll to zoom' : ''}. Dark wall in the distance: mountains beyond the tile, from the horizon mask. Terrain: {m?.mock ? 'synthetic (mock)' : 'LOLA DEM'}.
+        Drag to look around{mode === 'overview' ? ', scroll to zoom' : ''}. Dark wall in the distance: mountains beyond the tile, from the horizon mask. Terrain: {m?.mock ? 'synthetic (mock)' : 'LOLA DEM'}{m ? `, ${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km tile` : ''}.
       </p>
     </div>
   )

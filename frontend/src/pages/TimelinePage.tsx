@@ -209,6 +209,7 @@ export default function TimelinePage() {
               formatter={(v, name) => [`${Number(v).toFixed(2)}°`, name]}
               contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8 }}
               labelStyle={{ color: 'var(--ink-2)' }}
+              itemStyle={{ color: 'var(--ink-1)' }}
             />
             <Area dataKey="sunHz" name="Terrain toward the Sun" type="monotone" stroke="none" fill="var(--terrain)" fillOpacity={0.9} isAnimationActive={false} baseValue="dataMin" />
             <Line dataKey="earthHz" name="Terrain toward Earth" type="monotone" stroke="var(--earth)" strokeOpacity={0.45} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
