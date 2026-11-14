@@ -11,7 +11,7 @@ import {
   useTerrain,
   useTimeline,
 } from '../api'
-import { clampPeriod, SiteSelect, TimeSlider } from '../components/Controls'
+import { clampPeriod, PeriodMovedNote, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { useAppState } from '../state'
 import type { CameraMode } from './Scene'
@@ -32,7 +32,7 @@ export default function View3DPage() {
   const [playing, setPlaying] = useState(false)
 
   const ms = useMemo(() => (tl.data ? timesMs(tl.data) : []), [tl.data])
-  const [f, e] = clampPeriod(from, to, ms)
+  const [f, e, moved] = clampPeriod(from, to, ms)
   const tt = Math.min(Math.max(t, f), e)
 
   useEffect(() => {
@@ -94,9 +94,9 @@ export default function View3DPage() {
 
       <div className="stage">
         <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
-          <Scene terrain={terrain.data} horizon={horizon.data} sky={sky} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} />
+          <Scene terrain={terrain.data} horizon={horizon.data} sky={sky} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} resetKey={`${siteId}|${look}`} />
         </Suspense>
-        <div className="hud" aria-live="polite">
+        <div className="hud">
           <p className="hud-sun">
             <b>Sun</b> {sky.sun.el.toFixed(2)}° high, az {sky.sun.az.toFixed(0)}° ·{' '}
             {riseSet(sunTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
@@ -108,6 +108,7 @@ export default function View3DPage() {
         </div>
       </div>
 
+      <PeriodMovedNote moved={moved} />
       <div className="play-row">
         <button className="btn" onClick={() => setPlaying((p) => !p)} aria-pressed={playing}>
           {playing ? 'Pause' : 'Play'}

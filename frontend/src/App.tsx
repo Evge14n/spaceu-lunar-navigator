@@ -1,25 +1,29 @@
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { isCustom, useDataSource, useSites } from './api'
 import { routes } from './routes'
-import { hrefFor, useAppState } from './state'
+import { useAppState } from './state'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Notice } from './components/Notice'
 
 export default function App() {
-  const { path, siteId, compareIds, setSite, setCompare } = useAppState()
+  const { path, siteId, compareIds, compareFromUrl, setSite, setCompare, href } = useAppState()
   const sites = useSites()
   const source = useDataSource()
   const route = routes.find((r) => r.path === path) ?? routes[0]
   const Page = route.component
 
-  // Pick sensible defaults once the site list is known.
+  // Pick sensible defaults once, when the site list first arrives.
+  const defaultsDone = useRef(false)
   useEffect(() => {
     const list = sites.data
-    if (!list?.length) return
+    if (!list?.length || defaultsDone.current) return
+    defaultsDone.current = true
     const ids = list.map((s) => s.id)
     if (!siteId || (!isCustom(siteId) && !ids.includes(siteId))) setSite(ids[0])
     const valid = compareIds.filter((id) => ids.includes(id))
-    if (valid.length < 2) setCompare(ids.slice(0, Math.min(3, ids.length)))
-  }, [sites.data, siteId, compareIds, setSite, setCompare])
+    if (!compareFromUrl || valid.length < 2) setCompare(ids.slice(0, Math.min(3, ids.length)))
+    else if (valid.length !== compareIds.length) setCompare(valid)
+  }, [sites.data, siteId, compareIds, compareFromUrl, setSite, setCompare])
 
   useEffect(() => {
     document.title = `${route.label} · Lunar Landing Site Navigator`
@@ -31,7 +35,7 @@ export default function App() {
         Skip to content
       </a>
       <header className="top">
-        <a className="brand" href={hrefFor('/map')}>
+        <a className="brand" href={href('/map')}>
           <svg aria-hidden="true" viewBox="0 0 32 32" width="22" height="22">
             <circle cx="16" cy="16" r="11" fill="var(--regolith-3)" />
             <path d="M5 19 Q16 13 27 19" stroke="var(--sun)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
@@ -44,7 +48,7 @@ export default function App() {
           <ul>
             {routes.map((r) => (
               <li key={r.path}>
-                <a href={hrefFor(r.path)} aria-current={r === route ? 'page' : undefined}>
+                <a href={href(r.path)} aria-current={r === route ? 'page' : undefined}>
                   {r.label}
                 </a>
               </li>
@@ -63,9 +67,11 @@ export default function App() {
             {sites.error.message}
           </Notice>
         ) : (
-          <Suspense fallback={<div className="skeleton page-skeleton" aria-busy="true" />}>
-            <Page />
-          </Suspense>
+          <ErrorBoundary resetKey={`${path}|${siteId}`}>
+            <Suspense fallback={<div className="skeleton page-skeleton" aria-busy="true" />}>
+              <Page />
+            </Suspense>
+          </ErrorBoundary>
         )}
       </main>
       <footer className="foot">
