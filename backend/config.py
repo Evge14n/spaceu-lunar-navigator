@@ -11,10 +11,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# SPICE cannot handle long or non-ASCII paths, so kernels live in a short ASCII folder.
-KERNEL_DIR = Path(os.environ.get("LUNAR_KERNEL_DIR", "C:/sp"))
-# Raw NASA rasters (hundreds of MB, never committed).
-RAW_DIR = Path(os.environ.get("LUNAR_RAW_DIR", "C:/sa26/raw"))
+BACKEND_DIR = Path(__file__).resolve().parent
+# SPICE kernels (46 MB, never committed). SPICE cannot handle long or non-ASCII paths:
+# if the repository lives in such a folder, point LUNAR_KERNEL_DIR to a short one.
+KERNEL_DIR = Path(os.environ.get("LUNAR_KERNEL_DIR", str(BACKEND_DIR / "kernels")))
+# Raw NASA rasters (1.6 GB, never committed).
+RAW_DIR = Path(os.environ.get("LUNAR_RAW_DIR", str(BACKEND_DIR / "raw")))
 # Precomputed static files served by GitHub Pages and by the API.
 DATA_DIR = Path(os.environ.get("LUNAR_DATA_DIR", str(REPO_ROOT / "data")))
 
