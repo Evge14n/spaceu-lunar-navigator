@@ -1,0 +1,26 @@
+{
+ "mock": true,
+ "note": "shape only, numbers are placeholders",
+ "site": {
+  "id": "custom",
+  "name": "Test point"
+ },
+ "period": {
+  "start": "2026-11-14T00:00:00Z",
+  "end": "2026-11-16T00:00:00Z"
+ },
+ "sun": {
+  "lit_percent": 100.0,
+  "longest_dark_h": 0,
+  "longest_lit_h": 48,
+  "max_el": 1.449,
+  "next_sunset": null,
+  "hours_to_sunset": null
+ },
+ "earth": {
+  "visible_percent": 0.0,
+  "next_earthset": null,
+  "hours_to_earthset": null,
+  "windows": []
+ }
+}
