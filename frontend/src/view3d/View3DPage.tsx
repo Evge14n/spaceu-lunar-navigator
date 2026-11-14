@@ -9,13 +9,58 @@ import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
 import { dateTimeUtc, siteTitle } from '../format'
 import { useAppState } from '../state'
+import { nightAt, type Night } from './night'
 import type { CameraMode } from './Scene'
 
 // three.js loads after the page frame is on screen.
 const Scene = lazy(() => import('./Scene').then((m) => ({ default: m.Scene })))
 
+/** Said in words when the Sun is behind the terrain, so a dark scene does not look broken. */
+function NightBanner({ night, onJump }: { night: Night; onJump: () => void }) {
+  return (
+    <div className="night">
+      <span className="label">
+        Night here<span className="night-why"> / the Sun is below the horizon</span>
+      </span>
+      <b className="night-t">{night.riseIn ? `Sunrise in ${night.riseIn}` : 'No sunrise in the computed data'}</b>
+      {night.jumpTo !== null && (
+        <button type="button" className="btn" onClick={onJump}>
+          Jump to sunrise
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Above the panorama: the same line by day and by night, in a box of fixed height, so the Play
+ * button and the slider below never jump when the Sun rises or sets during Play.
+ */
+function SunLine({ night, setsIn, onJump }: { night: Night | null; setsIn: string; onJump: () => void }) {
+  if (!night)
+    return (
+      <div className="night compact day">
+        <span className="label">Sun in view here</span>
+        <b className="night-t">{setsIn}</b>
+      </div>
+    )
+  return (
+    <div className="night compact">
+      <span className="label">
+        Night here<span className="night-why"> / the Sun is below the horizon</span>
+      </span>
+      <b className="night-t">{night.riseIn ? `Sunrise in ${night.riseIn}` : 'No sunrise in the computed data'}</b>
+      {night.jumpTo !== null && (
+        <button type="button" className="btn" onClick={onJump}>
+          Jump to sunrise
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function View3DPage() {
-  const { siteId, setSite, from, to, t, setTime } = useAppState()
+  const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
   const sites = useSites()
   const tl = useTimeline(siteId)
   const terrain = useTerrain(siteId)
@@ -24,7 +69,10 @@ export default function View3DPage() {
   const [enlarge, setEnlarge] = useState(1)
   const [look, setLook] = useState<'sun' | 'earth'>('sun')
   const [playing, setPlaying] = useState(false)
+  // bumped by "Jump to sunrise" so the camera turns to where the Sun comes up
+  const [aim, setAim] = useState(0)
   const ladder = useRef<HTMLDivElement>(null)
+  const scenePanel = useRef<HTMLElement>(null)
   const azr = useRef<HTMLDivElement>(null)
   const overlay = useMemo(() => ({ ladder, az: azr }), [])
 
@@ -41,6 +89,17 @@ export default function View3DPage() {
   }, [playing, tt, f, e, setTime])
 
   const custom = !!siteId && isCustom(siteId)
+  const night = tl.data ? nightAt(tl.data, tt, ms) : null
+  const jumpToSunrise = () => {
+    if (!night || night.jumpTo === null) return
+    setPlaying(false)
+    if (night.jumpTo > e) setPeriod(f, ms[ms.length - 1])
+    setTime(night.jumpTo)
+    setLook('sun')
+    setAim((a) => a + 1)
+    // the button goes away with the night: keep keyboard focus on the scene it changed
+    scenePanel.current?.focus({ preventScroll: true })
+  }
   const ready = !!(tl.data && terrain.data)
   const sky = tl.data ? skyAt(tl.data, tt, ms) : null
   const sunTr = tl.data ? nextTransition(tl.data, 'sun', tt, ms) : null
@@ -59,7 +118,9 @@ export default function View3DPage() {
         title="Stand on the site and look around"
         lede={
           sky && widths !== null
-            ? sky.sun.el >= 0
+            ? night
+              ? `Night here: the terrain hides the Sun${night.riseIn ? `, sunrise in ${night.riseIn}` : ''}. The scene is dark because it is night, not because it is broken.`
+              : sky.sun.el >= 0
               ? `The Sun is ${sky.sun.el.toFixed(2)}° up, ${widths.toFixed(1)} of its own widths. Every hill on the horizon matters.`
               : `The Sun is ${Math.abs(sky.sun.el).toFixed(2)}° below the level line; from a raised site it can still be seen over lower ground.`
             : 'Real LOLA terrain around the site, the Sun and the Earth in their true directions.'
@@ -83,15 +144,20 @@ export default function View3DPage() {
         <span className="hint">Drag to look around / Ctrl + wheel to zoom</span>
       </div>
 
-      <section className="panel scene-panel" aria-label="3D scene">
+      <section className="panel scene-panel" aria-label="3D scene" ref={scenePanel} tabIndex={-1}>
         <div className="scene-cap label">
-          <span>Live 3D scene: LOLA terrain{m ? ` ${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km` : ''}, far hills from the horizon mask</span>
+          <span>
+            {custom
+              ? 'Your point / horizon from the 240 m grid'
+              : `Live 3D scene: LOLA terrain${m ? ` ${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km` : ''}, far hills from the horizon mask`}
+          </span>
           <span>{dateTimeUtc(tt)}</span>
         </div>
+        {custom ? (
+          <p className="stage-note">No 3D for your own point: its whole horizon is unrolled below.</p>
+        ) : (
         <div className="stage">
-          {custom ? (
-            <div className="stage-loading">3D terrain is drawn for the listed sites. For your point, the whole horizon is below, computed from the 240 m grid.</div>
-          ) : terrain.error || tl.error ? (
+          {terrain.error || tl.error ? (
             <div className="stage-loading">
               <Notice tone="error" title="No 3D data for this site yet">
                 {(terrain.error ?? tl.error)?.message}
@@ -103,7 +169,7 @@ export default function View3DPage() {
             </div>
           ) : (
             <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
-              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}`} overlay={overlay} />
+              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}|${aim}`} overlay={overlay} />
             </Suspense>
           )}
           <div className="ov ov-ladder" ref={ladder} aria-hidden="true">
@@ -118,12 +184,17 @@ export default function View3DPage() {
             <span style={{ left: '50%' }} />
             <span style={{ left: '100%' }} />
           </div>
-          {mode === 'overview' && (
-            <p className="ov ov-note">
-              Camera 1.8 km above the site, so the Sun looks higher above the hills than it does from the ground. Elevations are measured at the site: switch to eye level.
-            </p>
-          )}
+          <div className="ov-top">
+            {night && <NightBanner night={night} onJump={jumpToSunrise} />}
+            {mode === 'overview' && (
+              <p className="ov-note">
+                <span className="long">Camera 1.8 km above the site, so the Sun looks higher above the hills than it does from the ground. Elevations are measured at the site: switch to eye level.</span>
+                <span className="short">Camera 1.8 km up: the Sun looks higher than from the ground.</span>
+              </p>
+            )}
+          </div>
         </div>
+        )}
         {sky && sunTr && earthTr && (
           <div className="status">
             <p>
@@ -149,6 +220,7 @@ export default function View3DPage() {
           <span className="label">720 directions / terrain out to 150 km / vertical scale stretched</span>
         </div>
         <div className="panel-pad pano">
+          {sunTr && <SunLine night={night} setsIn={riseSet(sunTr, 'Sunset in', 'Sunrise in', 'No sunset in the computed data', 'No sunrise in the computed data')} onJump={jumpToSunrise} />}
           {horizon.data && sky && tl.data && range ? (
             <HorizonPanorama horizon={horizon.data} sky={sky} tl={tl.data} i0={range[0]} i1={range[1]} />
           ) : horizon.error ? (
