@@ -227,6 +227,8 @@ input[type='range'] { width: 100%; accent-color: var(--sun); min-height: 32px; }
 /* 3D */
 .stage { position: relative; height: min(68vh, 640px); min-height: 360px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #05060a; }
 .stage canvas { touch-action: none; }
+.canvas-wrap { position: absolute; inset: 0; }
+.stage-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); }
 .hud { position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .hud p { font-size: 0.85rem; padding: 4px 10px; border-radius: 6px; background: oklch(0.12 0.005 75 / 0.82); font-variant-numeric: tabular-nums; }
 .hud-sun b { color: var(--sun); }

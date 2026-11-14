@@ -2,8 +2,8 @@
 // Terrain: n x n heights, row 0 = north edge. Sun and Earth sit on a sky sphere in their true
 // directions; their discs have the true angular size unless `enlarge` > 1.
 
-import { OrbitControls } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { Horizon, Sky, Terrain } from '../api'
@@ -218,36 +218,30 @@ function Compass({ eyeY }: { eyeY: number }) {
 export type CameraMode = 'site' | 'overview'
 
 function CameraRig({ mode, eyeY, lookDir }: { mode: CameraMode; eyeY: number; lookDir: [number, number, number] }) {
-  const { camera } = useThree()
-  const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null)
+  const { camera, gl } = useThree()
+  const controls = useMemo(() => new OrbitControls(camera, gl.domElement), [camera, gl])
+  useEffect(() => () => controls.dispose(), [controls])
+  useFrame(() => controls.update())
   useEffect(() => {
-    const c = controls.current
-    if (!c) return
+    const c = controls
+    c.enablePan = mode === 'overview'
+    c.rotateSpeed = mode === 'site' ? -0.35 : 0.6
+    c.maxPolarAngle = mode === 'overview' ? Math.PI / 2.05 : Math.PI
     if (mode === 'site') {
-      const target = new THREE.Vector3(lookDir[0], eyeY + lookDir[1], lookDir[2]).multiplyScalar(1)
-      target.set(lookDir[0] * 50, eyeY + lookDir[1] * 50, lookDir[2] * 50)
+      c.target.set(lookDir[0] * 50, eyeY + lookDir[1] * 50, lookDir[2] * 50)
       camera.position.set(-lookDir[0] * 0.5, eyeY - lookDir[1] * 0.5, -lookDir[2] * 0.5)
-      c.target.copy(target)
       c.minDistance = 0.1
       c.maxDistance = 200
     } else {
-      camera.position.set(-lookDir[0] * 7000, eyeY + 2600, -lookDir[2] * 7000)
+      camera.position.set(-lookDir[0] * 6000, eyeY + 1800, -lookDir[2] * 6000)
       c.target.set(0, eyeY, 0)
       c.minDistance = 500
       c.maxDistance = 20_000
     }
     c.update()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, eyeY, lookDir[0], lookDir[2]])
-  return (
-    <OrbitControls
-      ref={controls}
-      makeDefault
-      enablePan={mode === 'overview'}
-      rotateSpeed={mode === 'site' ? -0.35 : 0.6}
-      maxPolarAngle={mode === 'overview' ? Math.PI / 2.05 : Math.PI}
-    />
-  )
+  }, [controls, mode, eyeY, lookDir[0], lookDir[2]])
+  return null
 }
 
 export function Scene({
@@ -270,13 +264,13 @@ export function Scene({
   const h0 = centreHeight(terrain) * exaggeration
   const eyeY = h0 + 2
   return (
+    <div className="canvas-wrap" role="img" aria-label="3D view of the terrain around the site with the Sun and the Earth">
     <Canvas
       shadows="percentage"
-      dpr={[1, 2]}
+      dpr={[1, 1.75]}
       camera={{ fov: 55, near: 0.3, far: 250_000 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
-      aria-label="3D view of the terrain around the site with the Sun and the Earth"
     >
       <ambientLight intensity={0.22} color="#9fb7ff" />
       <hemisphereLight args={['#1a2238', '#000000', 0.12]} />
@@ -294,5 +288,6 @@ export function Scene({
       </mesh>
       <CameraRig mode={mode} eyeY={eyeY} lookDir={lookDir} />
     </Canvas>
+    </div>
   )
 }
