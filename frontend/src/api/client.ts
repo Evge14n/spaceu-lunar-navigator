@@ -106,9 +106,43 @@ export async function getSites(): Promise<Site[]> {
 }
 
 /** Full timeline for a site. Static file for listed sites, live API for custom coordinates. */
+/** Can any point be computed in this browser (ephemeris vectors and the 240 m terrain grid are published)? */
+export async function canComputeLocally(): Promise<boolean> {
+  if ((await dataSource()) !== 'real') return false
+  const f = await dataFiles()
+  return f.has('ephem/year.json') && f.has('dem240.json')
+}
+
+const localCache = new Map<string, Promise<{ timeline: Timeline; horizon: Horizon }>>()
+
+/** Timeline and horizon for a custom point, computed in a Web Worker from data/ephem and data/dem240. */
+export function computeLocal(siteId: string): Promise<{ timeline: Timeline; horizon: Horizon }> {
+  let p = localCache.get(siteId)
+  if (!p) {
+    const [lat, lon] = siteId.slice('custom:'.length).split(',').map(Number)
+    p = new Promise((resolve, reject) => {
+      const w = new Worker(new URL('./local.worker.ts', import.meta.url), { type: 'module' })
+      w.onmessage = (e) => {
+        w.terminate()
+        if (e.data.error) reject(new DataError(e.data.error, siteId))
+        else resolve(e.data)
+      }
+      w.onerror = (e) => {
+        w.terminate()
+        reject(new DataError(e.message || 'calculation failed', siteId))
+      }
+      w.postMessage({ lat, lon, heightM: 2, base: `${new URL(BASE + 'data/', location.href)}` })
+    })
+    p.catch(() => localCache.delete(siteId))
+    localCache.set(siteId, p)
+  }
+  return p
+}
+
 export async function getTimeline(siteId: string, start?: string, end?: string): Promise<Timeline> {
   if (isCustom(siteId)) {
-    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    if (await canComputeLocally()) return (await computeLocal(siteId)).timeline
+    if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     const q = new URLSearchParams({ site: siteId, step: '60', height_m: '2' })
     if (start) q.set('start', start)
     if (end) q.set('end', end)
@@ -119,7 +153,8 @@ export async function getTimeline(siteId: string, start?: string, end?: string):
 
 export async function getHorizon(siteId: string): Promise<Horizon> {
   if (isCustom(siteId)) {
-    if (!API_URL) throw new DataError('Custom coordinates need the live API (VITE_API_URL is not set)', '')
+    if (await canComputeLocally()) return (await computeLocal(siteId)).horizon
+    if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     return getJson<Horizon>(`${API_URL}/api/horizon?site=${encodeURIComponent(siteId)}&height_m=2`)
   }
   return getJson<Horizon>(await staticUrl(`horizon/${siteId}.json`))
