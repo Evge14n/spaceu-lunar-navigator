@@ -50,28 +50,19 @@ export default function View3DPage() {
     if (reduce) setPlaying(false)
   }, [])
 
-  if (sites.loading || tl.loading || terrain.loading) return <div className="skeleton page-skeleton" aria-busy="true" />
-  if (terrain.error || !terrain.data)
-    return (
-      <div className="page">
-        {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
-        <Notice tone="error" title="No terrain tile for this site yet">{terrain.error?.message}</Notice>
-      </div>
-    )
-  if (!tl.data) return <Notice tone="error" title="No timeline for this site">{tl.error?.message}</Notice>
-
-  const sky = skyAt(tl.data, tt, ms)
-  const sunTr = nextTransition(tl.data, 'sun', tt, ms)
-  const earthTr = nextTransition(tl.data, 'earth', tt, ms)
-  const lookDir = look === 'sun' ? sky.sun.dir : sky.earth.dir
-  const m = terrain.data.meta
+  const ready = !!(tl.data && terrain.data)
+  const sky = ready ? skyAt(tl.data!, tt, ms) : null
+  const sunTr = ready ? nextTransition(tl.data!, 'sun', tt, ms) : null
+  const earthTr = ready ? nextTransition(tl.data!, 'earth', tt, ms) : null
+  const lookDir = sky ? (look === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
+  const m = terrain.data?.meta
 
   return (
     <div className="page view3d">
       <div className="page-head">
         <h1>3D view</h1>
         <p className="lede">
-          {(m.size_m / 1000).toFixed(0)} × {(m.size_m / 1000).toFixed(0)} km of LOLA terrain around the site. Sun and Earth are drawn in their true directions{enlarge === 1 ? ' and true sizes' : `, ${enlarge}× enlarged`}.
+          {m ? `${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km` : 'A few kilometres'} of LOLA terrain around the site. Sun and Earth are drawn in their true directions{enlarge === 1 ? ' and true sizes' : `, ${enlarge}× enlarged`}.
         </p>
       </div>
       <div className="toolbar">
@@ -95,19 +86,29 @@ export default function View3DPage() {
       </div>
 
       <div className="stage">
-        <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
-          <Scene terrain={terrain.data} horizon={horizon.data} sky={sky} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} resetKey={`${siteId}|${look}`} />
-        </Suspense>
-        <div className="hud">
-          <p className="hud-sun">
-            <b>Sun</b> {sky.sun.el.toFixed(2)}° high, az {sky.sun.az.toFixed(0)}° ·{' '}
-            {riseSet(sunTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
-          </p>
-          <p className="hud-earth">
-            <b>Earth</b> {sky.earth.el.toFixed(2)}°, az {sky.earth.az.toFixed(0)}° ·{' '}
-            {riseSet(earthTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
-          </p>
-        </div>
+        {terrain.error || tl.error ? (
+          <div className="stage-loading">
+            <Notice tone="error" title="No 3D data for this site yet">{(terrain.error ?? tl.error)?.message}</Notice>
+          </div>
+        ) : !ready ? (
+          <div className="stage-loading" aria-busy="true">Loading terrain…</div>
+        ) : (
+          <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
+            <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={ex} lookDir={lookDir} resetKey={`${siteId}|${look}`} />
+          </Suspense>
+        )}
+        {sky && sunTr && earthTr && (
+          <div className="hud">
+            <p className="hud-sun">
+              <b>Sun</b> {sky.sun.el.toFixed(2)}° high, az {sky.sun.az.toFixed(0)}° ·{' '}
+              {riseSet(sunTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
+            </p>
+            <p className="hud-earth">
+              <b>Earth</b> {sky.earth.el.toFixed(2)}°, az {sky.earth.az.toFixed(0)}° ·{' '}
+              {riseSet(earthTr, 'sets in', 'hidden, rises in', 'does not set in the data', 'does not rise in the data')}
+            </p>
+          </div>
+        )}
       </div>
 
       <PeriodMovedNote moved={moved} />
@@ -118,7 +119,7 @@ export default function View3DPage() {
         <TimeSlider from={f} to={e} value={tt} onChange={setTime} />
       </div>
       <p className="source">
-        Drag to look around{mode === 'overview' ? ', scroll to zoom' : ''}. Dark wall in the distance: mountains beyond the tile, from the horizon mask. Terrain: {m.mock ? 'synthetic (mock)' : 'LOLA DEM'}.
+        Drag to look around{mode === 'overview' ? ', scroll to zoom' : ''}. Dark wall in the distance: mountains beyond the tile, from the horizon mask. Terrain: {m?.mock ? 'synthetic (mock)' : 'LOLA DEM'}.
       </p>
     </div>
   )
