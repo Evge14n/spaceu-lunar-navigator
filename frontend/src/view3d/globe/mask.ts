@@ -27,13 +27,15 @@ export interface MaskResult {
 }
 
 /**
- * Distances along a ray, metres: one pixel at a time close by, then coarser, out to maxM.
- * The first sample is one pixel away, because a grid cannot say anything about what is closer.
+ * Distances along a ray, metres, exactly as docs/BROWSER_COMPUTE.md step 3: the first sample one
+ * pixel away (a grid says nothing about what is closer), then every half pixel out to maxM. For
+ * the 240 m polar grid this is the backend's own 240, 360, 480 ... 150 000 m.
  */
 export function rayDistances(pixelM: number, maxM = 150_000): Float32Array {
-  const step = Math.max(60, Math.min(pixelM, 2000))
+  const first = Math.max(60, Math.min(pixelM, 20_000))
+  const step = first / 2
   const out: number[] = []
-  for (let s = step; s <= maxM; s += s < 10_000 ? step : s < 40_000 ? 2 * step : 4 * step) out.push(s)
+  for (let s = first; s <= maxM; s += step) out.push(s)
   return new Float32Array(out)
 }
 

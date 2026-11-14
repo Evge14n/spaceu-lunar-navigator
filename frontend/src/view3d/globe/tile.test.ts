@@ -132,12 +132,14 @@ describe('horizon mask for any point', () => {
     })
   }
 
-  it('rays start one pixel out and reach 150 km', () => {
+  it('rays are the ones of docs/BROWSER_COMPUTE.md: 240, 360, 480 ... 150 000 m', () => {
     const d = rayDistances(240)
-    expect(d[0]).toBe(240)
+    expect([d[0], d[1], d[2]]).toEqual([240, 360, 480])
+    expect(d.length).toBe(1249)
     expect(d[d.length - 1]).toBeLessThanOrEqual(150_000)
-    expect(d[d.length - 1]).toBeGreaterThan(140_000)
-    expect(d.length).toBeLessThan(1400)
+    expect(d[d.length - 1]).toBeGreaterThan(149_800)
+    // a coarse grid gets fewer, wider samples
+    expect(rayDistances(1900).length).toBeLessThan(200)
   })
 
   it('samples outside the source are counted, and such a ray falls back to the sphere', () => {
