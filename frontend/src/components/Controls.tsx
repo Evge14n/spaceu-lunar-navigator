@@ -1,9 +1,10 @@
 // Shared controls: site select, period, time slider. Plain native inputs, styled in index.css.
 
-import { useId } from 'react'
+import { useId, useLayoutEffect, useState } from 'react'
 import type { PeriodPreset, Site } from '../api'
 import { dateTimeUtc } from '../format'
 import { HOUR } from '../api'
+import { SliderTouchGuard } from './sliderGesture'
 
 export const fmtUtc = (t: number) => dateTimeUtc(t)
 const toDateInput = (t: number) => new Date(t).toISOString().slice(0, 10)
@@ -127,6 +128,9 @@ export function TimeSlider({
   const id = useId()
   const steps = Math.max(1, Math.round((to - from) / HOUR))
   const v = Math.round((Math.min(Math.max(value, from), to) - from) / HOUR)
+  // A finger scrolling the page across the slider must not move the time (see sliderGesture.ts).
+  const [guard] = useState(() => new SliderTouchGuard())
+  useLayoutEffect(() => guard.onCommit((step) => onChange(from + step * HOUR)), [guard, from, onChange])
   return (
     <div className="slider">
       <label htmlFor={id} className="label">
@@ -140,7 +144,11 @@ export function TimeSlider({
         step={1}
         value={v}
         aria-valuetext={fmtUtc(from + v * HOUR)}
-        onChange={(e) => onChange(from + Number(e.target.value) * HOUR)}
+        onPointerDown={(e) => guard.pointerDown(e.pointerType, e.clientX, e.clientY, e.pointerId, e.isPrimary)}
+        onPointerMove={(e) => guard.pointerMove(e.clientX, e.clientY, e.pointerId)}
+        onPointerUp={(e) => guard.pointerUp(e.pointerId)}
+        onPointerCancel={(e) => guard.pointerCancel(e.pointerId)}
+        onChange={(e) => guard.input(Number(e.target.value))}
       />
     </div>
   )
