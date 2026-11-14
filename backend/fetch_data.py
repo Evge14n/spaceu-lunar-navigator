@@ -1,7 +1,7 @@
 """Download the NASA inputs (official addresses only).
 
     python -m backend.fetch_data kernels     # 46 MB of SPICE kernels (needed by everything)
-    python -m backend.fetch_data rasters     # 1.3 GB of LOLA rasters (needed only to recompute data/)
+    python -m backend.fetch_data rasters     # 1.6 GB of LOLA rasters (needed only to recompute data/)
 
 Files that already exist with the expected size are skipped.
 """
@@ -49,6 +49,11 @@ RASTER_URLS = {
     "AVGVISIB_85S_060M_201608.TIF": PGDA_ILL + "AVGVISIB_85S_060M_201608.TIF",
     "AVGVISIB_85S_060M_201608_EARTH.TIF": PGDA_ILL + "AVGVISIB_85S_060M_201608_EARTH.TIF",
     "LPSR_85S_060M_201608.TIF": PGDA_ILL + "LPSR_85S_060M_201608.TIF",
+    "ldem_75s_120m.img": PDS + "ldem_75s_120m.img",
+    "ldem_75s_120m.lbl": PDS + "ldem_75s_120m.lbl",
+    "AVGVISIB_75S_120M_201608.TIF": PGDA_ILL + "AVGVISIB_75S_120M_201608.TIF",
+    "AVGVISIB_75S_120M_201608_EARTH.TIF": PGDA_ILL + "AVGVISIB_75S_120M_201608_EARTH.TIF",
+    "LPSR_75S_120M_201608.TIF": PGDA_ILL + "LPSR_75S_120M_201608.TIF",
     "README_LOLA_5mpp.txt": PGDA_5M + "README",
     **{f"sites/{s}_final_adj_5mpp_surf.tif": f"{PGDA_5M}{s}/{s}_final_adj_5mpp_surf.tif" for s in SITE_DIRS},
 }
