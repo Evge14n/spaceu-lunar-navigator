@@ -32,7 +32,8 @@ const SEGMENTS: [number, number] = SMALL ? [96, 48] : [192, 96]
 const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')
 /** Where the model may live: the first one that answers wins. */
 export const MODEL_URLS = [`${BASE}moon/moon.glb`, `${BASE}models/moon.glb`]
-export const TEXTURE_URLS = [`${BASE}moon/moon.webp`, `${BASE}moon/moon.jpg`, `${BASE}models/moon.webp`]
+const TEXTURE_NAMES = SMALL ? ['moon-1024.webp', 'moon.webp', 'moon.jpg'] : ['moon.webp', 'moon.jpg', 'moon-1024.webp']
+export const TEXTURE_URLS = [...TEXTURE_NAMES.map((n) => `${BASE}moon/${n}`), `${BASE}models/moon.webp`]
 
 export type ModelState =
   | { kind: 'loading' }
@@ -60,16 +61,16 @@ function relight(object: THREE.Object3D): number {
     const index = mesh.geometry.getIndex()
     triangles += (index ? index.count : mesh.geometry.getAttribute('position')?.count ?? 0) / 3
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    mesh.material = mats.map((m) => {
+    const next = mats.map((m) => {
       const old = m as THREE.MeshStandardMaterial & { map?: THREE.Texture | null }
       if ((old as THREE.Material).type === 'MeshStandardMaterial' || (old as THREE.Material).type === 'MeshPhysicalMaterial') {
         old.roughness = 1
         old.metalness = 0
         return old
       }
-      const next = new THREE.MeshStandardMaterial({ map: old.map ?? null, color: old.map ? 0xffffff : 0xcfcbc4, roughness: 1, metalness: 0 })
-      return next
-    })[0] as THREE.Material
+      return new THREE.MeshStandardMaterial({ map: old.map ?? null, color: old.map ? 0xffffff : 0xcfcbc4, roughness: 1, metalness: 0 })
+    })
+    mesh.material = (Array.isArray(mesh.material) ? next : next[0]) as THREE.Material
   })
   return Math.round(triangles)
 }
@@ -213,18 +214,13 @@ function Rig({ focus }: { focus: { dir: [number, number, number]; distance: numb
     c.rotateSpeed = 0.45
     c.minDistance = 1.25
     c.maxDistance = 8
-    c.enableZoom = false
+    // the page scrolls on a plain wheel; Ctrl + wheel zooms, as on sheet 04. Pinch always zooms.
+    c.enableZoom = true
+    c.zoomSpeed = 0.8
     controls.current = c
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) {
-        c.enableZoom = false
-        return
-      }
-      e.preventDefault()
-      c.enableZoom = true
-      const k = e.deltaY > 0 ? 1.1 : 1 / 1.1
-      const d = Math.min(8, Math.max(1.25, camera.position.length() * k))
-      camera.position.setLength(d)
+      c.enableZoom = e.ctrlKey
+      if (e.ctrlKey) e.preventDefault()
     }
     gl.domElement.addEventListener('wheel', onWheel, { capture: true, passive: false })
     return () => {
@@ -296,7 +292,7 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
   }
   const sun = sunDir ?? [0.6, 0.2, 0.8]
   return (
-    <div className="canvas-wrap">
+    <div className="canvas-wrap" role="img" aria-label="Globe of the Moon lit by the Sun; tap it to pick a point, or type the coordinates below">
       {model.kind === 'loading' && <div className="stage-loading" aria-busy="true">Loading the Moon…</div>}
       <Canvas
         dpr={DPR}

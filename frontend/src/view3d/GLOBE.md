@@ -1,67 +1,134 @@
-# Intro globe: what is ready and how to plug the model in
+# The globe sheet: what it does, what the model must be, what is coarse
 
-For Anastasiia Sh. The globe itself (the LRO Moon model, the scene, the camera) is yours; this note only lists the place and the data prepared for it.
+`#/globe` is sheet 00: the whole Moon, lit by the Sun of the chosen moment. Tap anywhere (or type
+coordinates) and "Open 3D view here" opens sheet 04 standing on that point, with the same scene,
+the same HUD, the same slider and Play, the same shadows as one of the ten prepared sites.
 
-## The place
+Files, all under `src/view3d/`:
 
-- Route `#/globe` -> `src/view3d/GlobePage.tsx`. It is registered in `hiddenRoutes` (`src/routes.ts`): it opens by link but is not in the navigation and not the first screen.
-- The page already has the sheet frame (stamp, title, the dark plate `.stage` like on 04 Horizon) and a status line with the sub-solar point. Replace the `<div className="stage-loading">` inside `.stage` with your `<Canvas>`.
-- When the model is ready and within the budget below, add it to `routes` (number `00`, or as a block on the map sheet). Do not make it the default route before that: the map is the landing sheet and its first load must not get heavier.
+| File | What it is |
+|---|---|
+| `GlobePage.tsx` | the sheet: pin, coordinates, site markers, time slider, orientation check |
+| `globe/GlobeScene.tsx` | the three.js scene: model or sphere, Sun light, markers, tap to pick |
+| `globe/frame.ts` | lat/lon ↔ scene directions, the inverse transform a tap needs, the constants |
+| `globe/heights.ts` | where the height of the ground comes from, in three tiers |
+| `globe/tile.ts` | the local terrain tile for any point (row 0 north, curvature included) |
+| `globe/mask.ts` | the 720-direction horizon mask for any point |
+| `globe/route.ts` | which pipeline a site id goes through |
+| `globe/useCustomSite.ts` + `globe/custom.worker.ts` | the above, off the main thread, cached |
 
-## Direction to the Sun at any hour
+Pure modules are unit tested: `frame.test.ts`, `tile.test.ts`, `route.test.ts`, and
+`published.test.ts`, which checks the mask and the tile against the files the backend published.
 
-```ts
-import { meToScene, toLatLon, useSunDirection } from '../api'
+## The model file
 
-const sunMe = useSunDirection(timeMs)   // [x, y, z] unit vector in MOON_ME, or null while loading
-const sunScene = sunMe && meToScene(sunMe)
-// <directionalLight position={sunScene.map((v) => v * 10)} />   the Sun is at infinity: only the direction matters
+Put it at **`frontend/public/moon/moon.glb`** (`public/models/moon.glb` also works). It is copied
+to the site as is and is loaded only on `#/globe`, lazily, inside the three.js chunk.
+
+What the page does with it, and what it therefore assumes:
+
+- **Scale.** The bounding sphere of the loaded scene is measured and the model is scaled so that
+  its radius is 1 scene unit = **1737.4 km**. Metres, kilometres or radii in the file all work; a
+  model that is not a whole globe (a crop, a flattened tile) does not.
+- **Centre.** The bounding sphere centre is moved to the origin, so an off-centre export is fine.
+- **Orientation.** The scene frame is the one of `src/api/sun.ts`: **x = 0° N 90° E, y = north
+  pole, z = 0° N 0° E** (the near side faces a camera on +z). `GLOBE_MODEL_FRAME` in
+  `globe/frame.ts` says which frame the file itself is in — `'scene'` (already y-up, the default)
+  or `'me'` (the MOON_ME axes: x to 0° E, y to 90° E, z to the north pole) — and
+  `GLOBE_MODEL_SPIN_DEG` turns it about the polar axis if its longitudes are offset. The data is
+  never rotated, only the model.
+- **Relief.** Whatever displacement the file carries is what you see; the page does not stretch it.
+  `GLOBE_RELIEF_EXAGGERATION` only affects what the page draws itself (pins, markers). Real lunar
+  relief is 0.6 % of the radius, so a model with true heights looks like a smooth ball — that is
+  correct, not a bug.
+- **Compression.** meshopt is decoded out of the box (`MeshoptDecoder`). Draco only works if the
+  decoder is next to the site, at `public/draco/`; without it the page falls back to a sphere and
+  says so. Prefer meshopt.
+- **If the file is missing or unreadable**: a plain sphere stands in (textured from
+  `public/moon/moon.webp`, `moon.jpg`, or `moon-1024.webp` on phones, if any of them is there),
+  with a small notice. Nothing else on the sheet changes: the Sun, the picking and the coordinates
+  all work on the stand-in.
+
+### Checking the orientation
+
+The sheet has an orientation control: **Show the markers** puts a coloured dot at three known
+places, and the two groups of buttons try the axes and the spin without a rebuild (the choice is
+remembered in `localStorage`, in a `try`/`catch`).
+
+| Dot | Place | Must land on |
+|---|---|---|
+| green | Shackleton rim, −89.68643, 197.0629 | the rim of Shackleton, at the south pole |
+| pink | 0° N 0° E | centre of the near side (Sinus Medii), facing the camera |
+| yellow | Mare Crisium, about 17° N 59° E | the near side, towards +x |
+
+When all three are right, a tap gives the right coordinates. Write the working combination into
+`GLOBE_MODEL_FRAME` and `GLOBE_MODEL_SPIN_DEG` so everyone gets it without touching the buttons.
+
+## Where the heights of a custom point come from
+
+The Sun and the Earth are exact for any point on the Moon: they come from
+`data/ephem/year.bin` (hourly MOON_ME vectors, checked against JPL Horizons). The **ground** is
+the part that depends on what is published, and the page always says which of three tiers it used:
+
+| Tier | When | What you get | How the sheet labels it |
+|---|---|---|---|
+| `lola240` | latitude ≤ −83° (inside `data/dem240.bin`) | the real LOLA model, 240 m pixels, 10 × 10 km tile, full 150 km horizon mask | "LOLA 240 m terrain" |
+| `global` | a whole-Moon grid is published at `public/moon/height.json` | real relief anywhere, kilometres per pixel, wider tile | "Coarse terrain from the global model" + a notice |
+| `sphere` | neither | smooth sphere of 1737.4 km; the skyline is the geometric horizon | "No elevation model for this point" + a notice |
+
+It is never called LOLA 20 m data, which is what the ten prepared sites have.
+
+Note what the model file is *not*: a GLB built as a sphere with a texture carries no heights at
+all, and even a displaced mesh of a few hundred thousand triangles is about 10 km per vertex —
+too coarse to stand on. The relief of a custom point comes from the grids above, not from the GLB.
+
+### The optional whole-Moon height grid
+
+Drop two files into `frontend/public/moon/` and every point on the Moon gets real (coarse) relief:
+
+```json
+// height.json
+{ "file": "height.bin", "width": 2048, "height": 1024, "dtype": "int16",
+  "scale_m": 1, "offset_m": 0, "north_lat": 90, "south_lat": -90, "west_lon": 0,
+  "source": "NASA LOLA LDEM, 2048 x 1024, about 5.3 km per pixel" }
 ```
 
-- Source: `data/ephem/year.json` + `data/ephem/year.bin` (210 kB, loaded once). Format in `docs/BROWSER_COMPUTE.md`: `n` = 8761 records of 6 little-endian `float32`, one per hour from `start` = 2026-11-14T00:00Z; values 0-2 are the unit vector from the Moon's centre to the Sun, 3-5 the Earth's position in km. Apparent positions (light time and aberration, as the rest of the site), checked against JPL Horizons (Accuracy sheet).
-- `useSunDirection` interpolates linearly between the two hourly records and normalises; times outside the year are clamped to its ends. The pure function behind it is `sunDirectionAt(table, t)` in `src/api/sun.ts`.
-- Test: `src/api/sun.test.ts` converts this direction to azimuth and elevation at all 10 sites, 50 moments each, and matches the published timelines within 0.01 degrees.
-- The global time is `t` from `useAppState()` (the same time slider as the other sheets), so the globe can share the moment with Timeline and Horizon.
+- `dtype: "int16"` — a raw little-endian `int16` array, row-major, row 0 at `north_lat`, column 0
+  at `west_lon`, heights in metres above the 1737.4 km sphere after `scale_m` and `offset_m`.
+  2048 × 1024 is 4 MB.
+- `dtype: "rg8"` — any lossless image the browser can decode (PNG, WebP) with the height packed as
+  `R * 256 + G`; smaller, decoded with `createImageBitmap` + `OffscreenCanvas`.
+- Longitude wraps, latitude is clamped, sampling is bilinear.
 
-## Axes: MOON_ME to your scene
+A 2048 × 1024 grid is 5.3 km per pixel at the equator: good for crater walls and massifs, blind to
+anything smaller. The tile widens with the pixel (`tileSizeM`), so you see relief instead of two
+flat pixels, and the page says how many metres a sample is.
 
-MOON_ME (mean Earth / polar axes): origin at the centre, `x` towards 0 N 0 E (the mean direction to the Earth, centre of the near side), `z` towards the north pole, `y` towards 0 N 90 E.
+## Weight budget
 
-For a three.js scene with `y` up: `meToScene([x, y, z]) = [y, z, x]`, i.e.
+- Everything the globe adds: **8 MB at most**, the less the better. Pages serves it without a CDN.
+- Texture 2k–4k (WebP or KTX2). Add `moon-1024.webp` as well: phones load it first.
+- Geometry decimated and compressed with meshopt:
+  `npx @gltf-transform/cli optimize in.glb out.glb --compress meshopt --texture-compress webp`.
+- A global height grid, if you ship one, counts against the same 8 MB (int16 2048 × 1024 = 4 MB).
 
-| scene | MOON_ME | on the Moon |
-|---|---|---|
-| +x | +y | 0 N 90 E (east limb seen from Earth) |
-| +y | +z | north pole (south pole is -y) |
-| +z | +x | 0 N 0 E, centre of the near side, faces a camera on +z |
+## Lazy loading and phones
 
-It is a cyclic swap, so the frame stays right-handed (no mirror). Test: same file.
-
-**Check the orientation of the GLB itself** (models from LRO data come in different conventions): put a small marker at `meToScene(fromLatLon(lat, lon))` for
-
-- site 02 Shackleton rim, -89.68643, 197.0629: must sit on the rim of Shackleton crater at the south pole;
-- 0 N 0 E: centre of the near side (Sinus Medii);
-- Mare Crisium, about 17 N 59 E: on the +x side of the near side.
-
-If one of them is off, rotate the model (not the data) until all three match.
+- `GlobePage` is a lazy route in `hiddenRoutes`; the map sheet imports nothing from it, so the
+  first screen is unchanged. three.js stays in the chunk it already shared with sheet 04.
+- The GLB is fetched only after `#/globe` is open, and only if it exists (one `HEAD` first).
+- Under 700 px: fewer sphere segments (96 × 48), device pixel ratio capped at 1.5, a 97 × 97 tile
+  instead of 129 × 129, and the shadow grid the 3D sheet already drops to 128.
 
 ## The ten sites
 
-`data/sites.json` (already loaded by `useSites()`): `id`, `name`, `lat` (deg, negative = south), `lon` (deg east, 0..360), `elevation_m` (above the 1737.4 km sphere), plus `x_m`, `y_m` in the south polar stereographic map. The number shown everywhere (01-10) is the order in the file (`siteNo` in `src/format.ts`). Position on a globe of radius `r`: `meToScene(fromLatLon(lat, lon))` times `r * (1 + elevation_m / 1_737_400)`. All ten are within 85 km of the pole, so at globe scale they form one cluster: a callout or a zoom to the pole reads better than ten markers.
-
-## Weight budget (the model is for the web)
-
-- The whole globe download at most **8 MB**, the less the better (Pages serves it without a CDN cache warm-up; phones on mobile data).
-- Texture 2k-4k (2048 x 1024 is plenty at intro size; 4096 x 2048 only if you zoom in), WebP or KTX2.
-- Geometry decimated (a sphere with a height map, or a few hundred thousand triangles at most), compressed with **meshopt** (small decoder: `three/examples/jsm/libs/meshopt_decoder.module.js`, set with `gltfLoader.setMeshoptDecoder`) or **Draco** (needs `DRACOLoader` and its decoder files next to the site). One way: `npx @gltf-transform/cli optimize in.glb out.glb --compress meshopt --texture-compress webp` (check the flags with `--help` for your version).
-- Put the file in `frontend/public/models/` (it is copied to the site as is), not in `data/`.
-
-## Lazy loading, so the first screen does not get heavier
-
-- `GlobePage` is a lazy route; nothing on the map sheet should import from it.
-- Load the GLB only on `#/globe` (`useLoader(GLTFLoader, url)` inside `<Suspense>`), and keep three.js in its own chunk as `Scene.tsx` does (`lazy(() => import(...))`).
-- Before the globe becomes a first screen: model compressed within the budget, Lighthouse of the map sheet not worse than now (mobile 95-99), and a still picture (or the stage text) while the model loads.
+`data/sites.json` (already loaded by `useSites()`), drawn as blue dots, the selected one amber.
+Tapping a dot selects that prepared site, so the 3D view opens with its full-quality precomputed
+data instead of a custom point; so does picking a point within 5 km of one. All ten are within
+85 km of the pole and overlap at intro zoom — the **South pole** button turns the globe to them.
 
 ## Sources to cite on the page
 
-LRO LOLA / LROC data are NASA products, free to use; name the exact product the model was made from (for example a LOLA DEM or the LROC WAC mosaic) in the caption, as the other sheets do in their footers.
+LRO LOLA / LROC data are NASA products, free to use; name the exact product the model and any
+height grid were made from (for example `LDEM_64` or the LROC WAC mosaic) in the caption, as the
+other sheets do in their footers.
