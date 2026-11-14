@@ -1,0 +1,12 @@
+[
+ {
+  "mock": true,
+  "id": "custom",
+  "name": "Test point 89.5 S, 0 E (smooth sphere)",
+  "lat": -89.5,
+  "lon": 0.0,
+  "elevation_m": 0,
+  "source": "test point",
+  "has_5m": false
+ }
+]

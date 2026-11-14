@@ -1,0 +1,22 @@
+{
+ "mock": true,
+ "time": "2026-11-14T12:00:00Z",
+ "sun": {
+  "dir": [
+   0.8611,
+   0.0227,
+   0.5079
+  ],
+  "angular_radius_deg": 0.266,
+  "visible_fraction": 1.0
+ },
+ "earth": {
+  "dir": [
+   -0.0335,
+   -0.0632,
+   -0.9974
+  ],
+  "angular_radius_deg": 0.9,
+  "visible": false
+ }
+}
