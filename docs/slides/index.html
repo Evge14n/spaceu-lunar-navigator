@@ -60,13 +60,13 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
 
 <!-- 1. Title -->
 <div class="wrap"><section class="slide" aria-label="Title">
-  <span class="stamp">NASA Space Apps 2026 / Lunar Landing Site Navigator / Team SpaceU, Kyiv</span>
+  <span class="stamp">Lunar Navigator / NASA Space Apps 2026, challenge: Lunar Landing Site Navigator / Team SpaceU, Kyiv</span>
   <div class="cols" style="grid-template-columns: 1.15fr 1fr">
     <div style="display:flex;flex-direction:column;gap:36px">
       <h1>Where the Sun never quite sets</h1>
       <p style="font-size:38px">Pick a landing site and a date at the lunar south pole. See how long it stays in <b class="sun">sunlight</b> for power and when <b class="earth">Earth</b> is in view for a direct radio link, with the real mountains on the horizon.</p>
       <p class="link">evge14n.github.io/spaceu-lunar-navigator</p>
-      <p class="lab">Team SpaceU: Yevhen M. / Nazar Ch. / Anastasiia U. / Anastasiia Sh.</p>
+      <p class="lab">Team SpaceU: Yevhen Martyniuk / Nazar Cherniak / Anastasiia Usenko / Anastasiia Shestopal</p>
     </div>
     <img class="shot fit" src="img/map.jpg" alt="Map of the lunar south pole with ten candidate sites over NASA's average illumination map" style="max-height:840px">
   </div>
@@ -81,7 +81,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     <div><span class="lab">Guaranteed sunlight, one site</span><span class="num">68 → 89 %</span><p>When a panel goes from 1 m to 5 m above the ground (Barker et al. 2021).</p></div>
     <div><span class="lab">Earth, same point and day</span><span class="num earth">−3.6°</span><p>Below the horizon: no direct radio even without any mountains.</p></div>
   </div>
-  <p style="max-width:1500px">A hill kilometres away, a few hundred metres of distance or a few days of delay decide whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
+  <p style="max-width:1500px">A hill kilometres away, a move of a few hundred metres or a shift of a few days decides whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
   <div class="foot"><span>JPL Horizons, queried 12 Nov 2026 / Barker et al. 2021, doi:10.1016/j.pss.2020.105119</span><span>2 / 7</span></div>
 </section></div>
 
@@ -94,7 +94,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Sun and Earth over the real horizon</span><img class="shot fit" src="img/timeline.png" alt="Sun and Earth elevation against the real horizon over 30 days"></div>
     <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Now: light and shadow</span><img class="shot fit" src="img/map-now.png" alt="Now layer: light and shadow over the whole south pole at the chosen hour"></div>
   </div>
-  <p style="max-width:1650px">Pick any period: the darkest 30 days, a mission window or a whole year. Every number on the site comes from NASA data files, none is typed in by hand.</p>
+  <p style="max-width:1650px">Pick any period: the darkest 30 days, a mission window or a whole year. Every site number is computed from NASA data files.</p>
   <div class="foot"><span>Sunlit share, darkness, Earth in view, sunset and Earthset / Now layer at any hour</span><span>3 / 7</span></div>
 </section></div>
 
@@ -104,7 +104,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
   <h2>NASA data, computed in advance</h2>
   <div class="panel pipe">
     <div><b class="sun">Sun and Earth</b><span>NAIF SPICE kernels (DE440, Moon orientation), frame MOON_ME, light time and aberration, parallax of the site.</span></div>
-    <div><b>Horizon</b><span>LOLA terrain 5 m, 20 m and 80 m: elevation angle in 720 directions out to 150 km, curvature of the Moon included.</span></div>
+    <div><b>Horizon</b><span>LOLA terrain 5, 20, 80 and 120 m: elevation angle in 720 directions out to 150 km, curvature of the Moon included.</span></div>
     <div><b>Metrics</b><span>Visible part of the solar disc, sunlit share, longest darkness, Earth windows, next sunset and Earthset, every hour for a year.</span></div>
     <div><b class="earth">Website</b><span>Static files on GitHub Pages, so it never sleeps. Any period is summarised in the browser.</span></div>
   </div>
@@ -118,9 +118,9 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
   <h2>Checked against NASA sources</h2>
   <div class="cols" style="grid-template-columns: 1fr 1.2fr">
     <div class="panel" style="display:flex;flex-direction:column">
-      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sun and Earth vs JPL Horizons, 1 210 positions</span><br><span class="num" style="font-size:88px">0.00003°</span><p>largest difference, target was 0.01°</p></div>
+      <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sun and Earth vs JPL Horizons, 1,210 positions</span><br><span class="num" style="font-size:88px">0.00003°</span><p>largest difference, target was 0.01°</p></div>
       <div style="padding:28px 32px;border-bottom:2px solid var(--line)"><span class="lab">Sunlit share vs NASA illumination map, 480 pixels</span><br><span class="num" style="font-size:88px">0.26 pp</span><p>median difference, correlation 0.996 (computed the way the map was)</p></div>
-      <div style="padding:28px 32px"><span class="lab">Shadowed craters / website vs backend</span><p>149 of 150 permanently shadowed pixels never lit; the browser's own numbers match the server's for all 10 sites (automatic test).</p></div>
+      <div style="padding:28px 32px"><span class="lab">Shadowed craters / website vs backend</span><p>149 of 150 shadowed pixels never lit. Browser summaries match the backend for all 10 sites (automatic test).</p></div>
     </div>
     <img class="shot fit" src="img/accuracy.png" alt="Sunlit share site by site, ours against NASA's map" style="max-height:700px">
   </div>
@@ -137,7 +137,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
       <img class="shot" src="img/pano.png" alt="The whole horizon unrolled with the paths of the Sun and the Earth" style="height:300px">
       <ul>
         <li>LOLA terrain casts real shadows that move with the time slider; eye level or from above.</li>
-        <li>Instrument height 1, 2, 5 or 10 m changes every number.</li>
+        <li>Instrument height 1, 2, 5 or 10 m on Timeline and Horizon; a whole-year mast table on Compare.</li>
         <li>At night the page says when the Sun returns, and one tap jumps there.</li>
       </ul>
     </div>
@@ -161,9 +161,9 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     </div>
     <div class="inv"><span class="lab" style="color:#c9ced4">Next</span>
       <ul style="margin-top:16px;color:#dfe3e8">
-        <li style="color:#dfe3e8">Done: any point on the map and light over the whole pole, computed in the browser (240 m terrain)</li>
         <li style="color:#dfe3e8">Relay satellite windows when Earth is hidden</li>
         <li style="color:#dfe3e8">More sites from published Artemis regions</li>
+        <li style="color:#dfe3e8">Finer terrain for the points users choose</li>
       </ul>
     </div>
   </div>
