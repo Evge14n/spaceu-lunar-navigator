@@ -10,11 +10,14 @@ import { PageHead } from '../components/PageHead'
 import { dateTimeUtc, siteTitle } from '../format'
 import { useAppState } from '../state'
 import type { CameraMode } from './Scene'
-import { dataPath } from './globe/route'
+import { dataPath, parseCustomId } from './globe/route'
 import { useCustomSite } from './globe/useCustomSite'
+import type { GroundStatus } from './globe/StandOnGlobe'
 
 // three.js loads after the page frame is on screen.
 const Scene = lazy(() => import('./Scene').then((m) => ({ default: m.Scene })))
+// the globe ground brings the model with it: only loaded when a point of your own is shown
+const StandOnGlobe = lazy(() => import('./globe/StandOnGlobe'))
 
 export default function View3DPage() {
   const { siteId, setSite, from, to, t, setTime, href } = useAppState()
@@ -31,6 +34,11 @@ export default function View3DPage() {
   const terrain = { data: terrainA.data ?? local.data?.terrain ?? null, error: terrainA.error ?? local.error, loading: terrainA.loading || local.loading }
   const horizon = { data: horizonA.data ?? local.data?.horizon ?? null, error: horizonA.error ?? local.error, loading: horizonA.loading || local.loading }
   const coarse = local.data?.coarse ?? null
+  // A point of your own stands on the globe model itself; the tile is only drawn for the
+  // prepared sites. The ground waits for the worker, so both come from the same heights.
+  const point = parseCustomId(siteId)
+  const onGlobe = path === 'browser-globe' && !!point
+  const [groundState, setGroundState] = useState<GroundStatus>({ loading: true, error: null, spacingKm: null, triangles: 0 })
   const [mode, setMode] = useState<CameraMode>('site')
   const [enlarge, setEnlarge] = useState(1)
   const [look, setLook] = useState<'sun' | 'earth'>('sun')
@@ -51,7 +59,7 @@ export default function View3DPage() {
     return () => window.clearInterval(id)
   }, [playing, tt, f, e, setTime])
 
-  const ready = !!(tl.data && terrain.data)
+  const ready = onGlobe ? !!tl.data && !groundState.loading && !groundState.error : !!(tl.data && terrain.data)
   const sky = tl.data ? skyAt(tl.data, tt, ms) : null
   const sunTr = tl.data ? nextTransition(tl.data, 'sun', tt, ms) : null
   const earthTr = tl.data ? nextTransition(tl.data, 'earth', tt, ms) : null
@@ -60,11 +68,16 @@ export default function View3DPage() {
   const sizeKm = m ? m.size_m / 1000 : null
   const sample = coarse?.pixelM ? (coarse.pixelM >= 1000 ? `${(coarse.pixelM / 1000).toFixed(1)} km` : `${Math.round(coarse.pixelM)} m`) : null
   // never let a tile built from the global model read as the 20 m LOLA data of a listed site
-  const terrainCaption = !coarse
-    ? `Live 3D scene: LOLA terrain${sizeKm ? ` ${sizeKm.toFixed(0)} × ${sizeKm.toFixed(0)} km` : ''}, far hills from the horizon mask`
-    : coarse.sourceId === 'sphere'
-      ? 'No elevation model for this point: smooth sphere of 1737.4 km'
-      : `${coarse.sourceId === 'lola240' ? 'LOLA 240 m terrain' : 'Coarse terrain from the global model'}${sizeKm ? ` ${sizeKm.toFixed(1)} × ${sizeKm.toFixed(1)} km` : ''}${sample ? `, ${sample} samples` : ''}`
+  // measured from the model that is actually loaded, never hard-coded
+  const modelSpacingKm = groundState.spacingKm
+  const rescale = coarse?.calibration && coarse.calibration.n > 0 ? ` / relief rescaled to LOLA × ${coarse.calibration.scale.toFixed(2)}` : ''
+  const terrainCaption = onGlobe
+    ? `Terrain: global model, about ${modelSpacingKm ? modelSpacingKm.toFixed(1) : '…'} km per sample (coarse)${rescale}`
+    : !coarse
+      ? `Live 3D scene: LOLA terrain${sizeKm ? ` ${sizeKm.toFixed(0)} × ${sizeKm.toFixed(0)} km` : ''}, far hills from the horizon mask`
+      : coarse.sourceId === 'sphere'
+        ? 'No elevation model for this point: smooth sphere of 1737.4 km'
+        : `${coarse.sourceId === 'lola240' ? 'LOLA 240 m terrain' : 'Coarse terrain from the global model'}${sizeKm ? ` ${sizeKm.toFixed(1)} × ${sizeKm.toFixed(1)} km` : ''}${sample ? `, ${sample} samples` : ''}`
   // tracks on the panorama: the next 30 days from the chosen moment (a whole year is a tangle of loops)
   const range = tl.data ? indexRange(ms, tt, Math.min(e, tt + 30 * 86_400_000)) : null
   const sunWide = sky ? 2 * sky.sun.angular_radius_deg : null
@@ -112,20 +125,48 @@ export default function View3DPage() {
           <span>{dateTimeUtc(tt)}</span>
         </div>
         <div className="stage">
-          {terrain.error || tl.error ? (
+          {(onGlobe ? tl.error : terrain.error || tl.error) ? (
             <div className="stage-loading">
               <Notice tone="error" title="No 3D data for this site yet">
                 {(terrain.error ?? tl.error)?.message}
               </Notice>
             </div>
-          ) : !ready ? (
+          ) : onGlobe && groundState.error ? (
+            <div className="stage-loading">
+              <Notice tone="error" title="The globe model is not there">
+                {groundState.error}. Open the globe sheet to check the model, or pick a point near the south pole, where the LOLA grid works without it.
+              </Notice>
+            </div>
+          ) : !ready && !onGlobe ? (
             <div className="stage-loading" aria-busy="true">
               Loading terrain…
             </div>
+          ) : onGlobe ? (
+            <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
+              {sky && (
+                <StandOnGlobe
+                  latDeg={point!.lat}
+                  lonDeg={point!.lon}
+                  calibration={coarse?.calibration ?? null}
+                  onStatus={setGroundState}
+                  sky={sky}
+                  mode={mode}
+                  enlarge={enlarge}
+                  lookDir={lookDir}
+                  resetKey={`${siteId}|${look}`}
+                  overlay={overlay}
+                />
+              )}
+            </Suspense>
           ) : (
             <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
               <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}`} overlay={overlay} />
             </Suspense>
+          )}
+          {onGlobe && !ready && !groundState.error && (
+            <div className="stage-loading" aria-busy="true">
+              Building the ground from the globe model…
+            </div>
           )}
           <div className="ov ov-ladder" ref={ladder} aria-hidden="true">
             {[-4, -2, 0, 2, 4, 6].map((v) => (
@@ -141,7 +182,9 @@ export default function View3DPage() {
           </div>
           {mode === 'overview' && (
             <p className="ov ov-note">
-              Camera 1.8 km above the site, so the Sun looks higher above the hills than it does from the ground. Elevations are measured at the site: switch to eye level.
+              {onGlobe
+                ? 'Camera a few hundred kilometres up, so the Sun looks higher above the hills than it does from the ground. Elevations are measured at the point: switch to eye level.'
+                : 'Camera 1.8 km above the site, so the Sun looks higher above the hills than it does from the ground. Elevations are measured at the site: switch to eye level.'}
             </p>
           )}
         </div>
@@ -162,7 +205,18 @@ export default function View3DPage() {
         )}
       </section>
 
-      {coarse && coarse.sourceId !== 'lola240' && (
+      {onGlobe && (
+        <Notice title="You are standing on the global model">
+          The ground is the model's own surface, about {modelSpacingKm ? modelSpacingKm.toFixed(1) : '…'} km between its samples — from 2 m up, the
+          horizon of a smooth Moon is 2.4 km away, so the ground right at your feet is one flat triangle. Hills tens of kilometres away are real shapes;
+          nothing smaller than a few kilometres exists in this model, and none of it is invented to fill the gap.
+          {coarse?.calibration && coarse.calibration.n > 0
+            ? ` The model exaggerates relief, so its heights are rescaled by ${coarse.calibration.scale.toFixed(2)} to match LOLA (measured at ${coarse.calibration.n} points, correlation ${coarse.calibration.r.toFixed(2)}).`
+            : ' The model\u2019s relief has not been checked against LOLA in this browser yet, so heights may be exaggerated.'}
+        </Notice>
+      )}
+
+      {!onGlobe && coarse && coarse.sourceId !== 'lola240' && (
         <Notice title={coarse.sourceId === 'sphere' ? 'This point has no terrain model' : 'Coarse terrain from the global model'}>
           {coarse.sourceId === 'sphere'
             ? 'The Sun and the Earth are the real ones, computed from the NASA ephemeris. The ground is a smooth sphere of 1737.4 km: nothing published in this project covers this point, so the skyline you see is the geometric horizon, not real hills.'

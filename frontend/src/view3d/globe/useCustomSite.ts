@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Horizon, Terrain, TerrainMeta, Timeline } from '../../api'
+import type { Calibration } from './calibrate'
 import type { HeightSourceId } from './heights'
 import { MASK_STEP_DEG } from './mask'
 import { tileSamples } from './tile'
@@ -21,6 +22,8 @@ export interface CoarseInfo {
   stepM: number
   /** share of the tile and of the horizon rays with no data */
   missing: number
+  /** how the model's relief was rescaled to LOLA, when it had to be (calibrate.ts) */
+  calibration: Calibration | null
 }
 
 export interface CustomTerrainMeta extends TerrainMeta {
@@ -52,10 +55,32 @@ interface WorkerReply {
   sourceId: HeightSourceId
   label: string
   pixelM: number | null
+  calibration: Calibration | null
   timeline: Timeline | null
 }
 
 const cache = new Map<string, Promise<CustomSite>>()
+const CALIBRATION_KEY = 'spaceu.globe.calibration.v1'
+
+/** The measurement is the same for every point, so it is kept between visits. Storage may fail. */
+export function loadCalibration(): Calibration | null {
+  try {
+    const raw = window.localStorage.getItem(CALIBRATION_KEY)
+    if (!raw) return null
+    const c = JSON.parse(raw) as Calibration
+    return Number.isFinite(c?.scale) && Number.isFinite(c?.offset) ? c : null
+  } catch {
+    return null
+  }
+}
+
+export function saveCalibration(c: Calibration) {
+  try {
+    window.localStorage.setItem(CALIBRATION_KEY, JSON.stringify(c))
+  } catch {
+    /* private mode: it is measured again next time */
+  }
+}
 const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')
 const EYE_M = 2
 
@@ -66,12 +91,14 @@ function compute(siteId: string, lat: number, lon: number, needSky: boolean, n: 
       w.terminate()
       const d = e.data
       if (d.error) return reject(new Error(d.error))
+      if (d.calibration) saveCalibration(d.calibration)
       const coarse: CoarseInfo = {
         sourceId: d.sourceId,
         label: d.label,
         pixelM: d.pixelM,
         stepM: d.stepM,
         missing: Math.max(d.tileMissing, d.maskMissing),
+        calibration: d.calibration ?? null,
       }
       const meta: CustomTerrainMeta = {
         site: siteId,
@@ -98,7 +125,10 @@ function compute(siteId: string, lat: number, lon: number, needSky: boolean, n: 
     }
     // the globe sheet may already have read heights off the model: send a copy with the request
     const modelGrid = modelGridMessage()
-    w.postMessage({ lat, lon, heightM: EYE_M, n, dataBase: `${BASE}data/`, siteBase: BASE, needSky, modelGrid }, modelGrid ? [modelGrid.data.buffer] : [])
+    w.postMessage(
+      { lat, lon, heightM: EYE_M, n, dataBase: `${BASE}data/`, siteBase: BASE, needSky, modelGrid, calibration: loadCalibration() },
+      modelGrid ? [modelGrid.data.buffer] : [],
+    )
   })
 }
 
