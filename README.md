@@ -45,6 +45,7 @@ Commits come from Yevhen Martynyuk (GitHub Evge14n) and Anastasiia Shestopal (Gi
 - LOLA illumination maps (NASA PGDA; Mazarico et al. 2011, https://doi.org/10.1016/j.icarus.2010.10.030), used as a map layer and for validation.
 - JPL Horizons API, used as a reference in tests and for the Sun and Earth elevations quoted on the Why sheet.
 - NASA Moon Fact Sheet (NSSDCA, https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html), basic facts quoted on the Why sheet.
+- Moon 3D model from LRO data (NASA Scientific Visualization Studio, ID 14959, https://svs.gsfc.nasa.gov/14959/), packed for the web with glTF Transform and meshoptimizer for the globe sheet.
 
 ## Use of AI
 
