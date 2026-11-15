@@ -199,9 +199,19 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .inset { position: absolute; left: 0; bottom: 0; width: 38%; aspect-ratio: 1 / 1; border-top: var(--bw) solid var(--sheet); border-right: var(--bw) solid var(--sheet); overflow: hidden; background: var(--ink); }
 .inset > img { position: absolute; max-width: none; height: auto; }
 .inset-tag { position: absolute; left: 8px; top: 6px; font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.06em; color: var(--white); background: var(--ink); padding: 2px 5px; z-index: 2; }
+/* Now layer: half the plate is paper, so white rings and labels get an ink edge and the grid inverts over light ground */
+.plate.now svg.grid { mix-blend-mode: difference; }
+.plate.now .glabel { background: var(--ink); color: var(--white); padding: 1px 4px; opacity: 1; }
+.plate.now .marker .dot { outline: 1.5px solid var(--ink); }
+.plate.now .marker.on .dot { outline: 2px solid var(--ink); }
+.plate.now .marker:focus-visible .tag { outline-color: var(--sun); }
 .map-under { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 20px; margin-top: 10px; }
 .legend { display: flex; align-items: center; gap: 10px; }
 .legend-bar { width: 180px; height: 10px; border: 1px solid var(--ink); }
+.legend .sw { width: 14px; height: 14px; border: 1px solid var(--ink); flex: none; }
+.layer-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 20px; margin-bottom: 10px; }
+.layer-row .slider { flex: 1 1 260px; }
+.plate-busy { position: absolute; right: 8px; top: 8px; background: var(--ink); color: var(--white); padding: 4px 8px; z-index: 3; }
 .scalebar { display: flex; align-items: center; gap: 10px; }
 .scalebar i { display: block; height: 8px; border: 1px solid var(--ink); border-top: 0; }
 .index-head { margin: 18px 0 8px; }

@@ -2,8 +2,8 @@
 // Default view is at eye level, 2 m above the ground, where elevations read as they are measured.
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { indexRange, isCustom, nextTransition, riseSet, skyAt, timesMs, useHorizon, useSites, useTerrain, useTimeline } from '../api'
-import { clampPeriod, PeriodMovedNote, SiteSelect, TimeSlider } from '../components/Controls'
+import { indexRange, isCustom, nextTransition, riseSet, skyAt, timesMs, useHorizonAt, useSites, useTerrain, useTimelineAt } from '../api'
+import { clampPeriod, HeightSwitch, PeriodMovedNote, SiteSelect, TimeSlider } from '../components/Controls'
 import { HorizonPanorama } from '../components/HorizonPanorama'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
@@ -60,11 +60,12 @@ function SunLine({ night, setsIn, onJump }: { night: Night | null; setsIn: strin
 }
 
 export default function View3DPage() {
-  const { siteId, setSite, from, to, t, setTime } = useAppState()
+  const { siteId, setSite, from, to, t, setTime, heightM, setHeight } = useAppState()
   const sites = useSites()
-  const tl = useTimeline(siteId)
+  const h = siteId && isCustom(siteId) ? 2 : heightM
+  const tl = useTimelineAt(siteId, h)
   const terrain = useTerrain(siteId)
-  const horizon = useHorizon(siteId)
+  const horizon = useHorizonAt(siteId, h)
   const [mode, setMode] = useState<CameraMode>('site')
   const [enlarge, setEnlarge] = useState(1)
   const [face, setLook] = useState<'sun' | 'earth'>('sun')
@@ -117,7 +118,7 @@ export default function View3DPage() {
   return (
     <div className="page horizon">
       <PageHead
-        stamp={`Sheet 04 / ${siteTitle(sites.data, siteId)} / ${mode === 'site' ? 'Eye level, 2 m above the ground' : 'From above, 1.8 km up'}`}
+        stamp={`Sheet 04 / ${siteTitle(sites.data, siteId)} / ${mode === 'site' ? `Eye level, ${h} m above the ground` : 'From above, 1.8 km up'}`}
         title="Stand on the site and look around"
         lede={
           sky && widths !== null
@@ -132,6 +133,7 @@ export default function View3DPage() {
 
       <div className="toolbar">
         <SiteSelect sites={sites.data ?? []} value={siteId} onChange={setSite} />
+        <HeightSwitch value={h} onChange={setHeight} disabled={custom} />
         <div className="seg" role="group" aria-label="Camera">
           <button aria-pressed={mode === 'site'} onClick={() => setMode('site')}>Eye level</button>
           <button aria-pressed={mode === 'overview'} onClick={() => setMode('overview')}>From above</button>
@@ -172,7 +174,7 @@ export default function View3DPage() {
             </div>
           ) : (
             <Suspense fallback={<div className="stage-loading">Loading 3D…</div>}>
-              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}`} overlay={overlay} />
+              <Scene terrain={terrain.data!} horizon={horizon.data} sky={sky!} mode={mode} enlarge={enlarge} exaggeration={1} lookDir={lookDir} resetKey={`${siteId}|${look}`} overlay={overlay} eyeM={h} />
             </Suspense>
           )}
           <div className="ov ov-ladder" ref={ladder} aria-hidden="true">
