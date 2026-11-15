@@ -1,30 +1,32 @@
-// Sheet 00: the whole Moon. Turn the globe, tap anywhere, and open the 3D view of that point.
-// The model and the picking live in globe/GlobeScene.tsx; the frame, the inverse transform and
-// the constants are in globe/frame.ts; what the model has to satisfy is in GLOBE.md next to this file.
+// Sheet 00: the whole Moon as a picker. Turn the globe, choose one of the prepared sites - on the
+// globe or in the list - and open its 3D view. Every site here has the full LOLA data behind it;
+// there are no points of your own on this sheet any more.
+//
+// The globe itself is globe/GlobeScene.tsx, the rules (nearest site, order, framing, labels) are
+// globe/sitePicker.ts, and what the model has to satisfy is in GLOBE.md next to this file.
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { customId, meToScene, toLatLon, useSites, useSunDirection, type Site } from '../api'
+import { meToScene, toLatLon, useSites, useSunDirection, type Site } from '../api'
 import { TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateTimeUtc, latLon as fmtLatLon, siteNo } from '../format'
+import { dateTimeUtc, pct, siteNo } from '../format'
 import { useAppState } from '../state'
-import { DEM240_LAT_LIMIT, fileExists } from './globe/heights'
 import {
-  dirFromLatLon,
-  distanceKm,
   GLOBE_MODEL_FRAME,
   GLOBE_MODEL_SPIN_DEG,
+  dirFromLatLon,
   normalizeLon,
   ORIENTATION_MARKERS,
-  roundCoord,
   type ModelFrame,
   type ModelSummary,
 } from './globe/frame'
+import { formatLatLon, framingFor, hasPosition, moveSelection, nearestSite, sortSites, type SortKey } from './globe/sitePicker'
 
 const GlobeScene = lazy(() => import('./globe/GlobeScene'))
 
 const STORE_KEY = 'spaceu.globe.orientation'
+const COLUMNS = 3
 
 /** Remembered orientation of the model, so a fix survives a reload. Storage may be blocked. */
 function loadOrientation(): { frame: ModelFrame; spin: number } {
@@ -48,105 +50,90 @@ function saveOrientation(v: { frame: ModelFrame; spin: number }) {
   }
 }
 
-const nearestSite = (sites: Site[], lat: number, lon: number) => {
-  let best: { site: Site; km: number } | null = null
-  for (const s of sites) {
-    if (s.lat === null || s.lon === null) continue
-    const km = distanceKm(lat, lon, s.lat, s.lon)
-    if (!best || km < best.km) best = { site: s, km }
-  }
-  return best
-}
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'id', label: 'By number' },
+  { key: 'lit', label: 'By sunlight' },
+  { key: 'elevation', label: 'By height' },
+]
 
 export default function GlobePage() {
-  const { t, from, to, setTime, siteId, setSite, navigate } = useAppState()
+  const { t, from, to, setTime, siteId, setSite, navigate, href } = useAppState()
   const sites = useSites()
-  const list = useMemo(() => (sites.data ?? []).filter((s) => s.lat !== null && s.lon !== null), [sites.data])
-  const sunMe = useSunDirection(t)
-  const sunScene = sunMe ? (meToScene(sunMe) as [number, number, number]) : null
-  const sub = sunMe ? toLatLon(sunMe) : null
-  const [model, setModel] = useState<ModelSummary>({ kind: 'loading' })
+  const [sortKey, setSortKey] = useState<SortKey>('id')
+  const all = useMemo(() => sortSites(sites.data ?? [], sortKey), [sites.data, sortKey])
+  const placed = useMemo(() => all.filter(hasPosition), [all])
+  const numbering = sites.data ?? []
 
-  const [pin, setPin] = useState<{ lat: number; lon: number } | null>(null)
-  const [text, setText] = useState({ lat: '', lon: '' })
+  const selected: Site | null = useMemo(() => all.find((s) => s.id === siteId) ?? null, [all, siteId])
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [snapped, setSnapped] = useState<{ id: string; km: number } | null>(null)
+  const [model, setModel] = useState<ModelSummary>({ kind: 'loading' })
   const [orientation, setOrientation] = useState(loadOrientation)
   const [showOrientation, setShowOrientation] = useState(false)
   const [focus, setFocus] = useState<{ dir: [number, number, number]; distance: number; key: number } | null>(null)
-  const [hasGrid, setHasGrid] = useState<boolean | null>(null)
-  const [fromModel, setFromModel] = useState<{ spreadM: number; label: string } | null>(null)
   const focusKey = useRef(0)
-  const started = useRef(false)
+  const framedOnce = useRef(false)
+  const cardRefs = useRef(new Map<string, HTMLButtonElement>())
 
   useEffect(() => saveOrientation(orientation), [orientation])
 
-  // is a whole-Moon height grid published next to the site? (GLOBE.md); one HEAD, once
-  useEffect(() => {
-    let live = true
-    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')
-    fileExists(`${base}moon/height.json`).then((ok) => live && setHasGrid(ok))
-    return () => {
-      live = false
-    }
+  /** Where the camera has to be for the cluster to come apart: measured from the sites themselves. */
+  const framing = useMemo(() => framingFor(placed), [placed])
+
+  const turnTo = useCallback((lat: number, lon: number, distance: number) => {
+    focusKey.current += 1
+    setFocus({ dir: dirFromLatLon(lat, normalizeLon(lon)) as [number, number, number], distance, key: focusKey.current })
   }, [])
 
-  // arriving with a point already chosen (a shared link, or coming back from sheet 04):
-  // show it on the globe instead of an empty pin
+  const showPole = useCallback(() => turnTo(framing.lat, framing.lon, framing.distance), [framing, turnTo])
+
+  /** One selection for the globe and the list. Choosing a site turns the globe to it. */
+  const choose = useCallback(
+    (id: string, turn = true) => {
+      setSite(id)
+      setSnapped(null)
+      const s = (sites.data ?? []).find((x) => x.id === id)
+      if (turn && s && hasPosition(s)) turnTo(s.lat, s.lon, framing.distance)
+      const card = cardRefs.current.get(id)
+      card?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    },
+    [framing.distance, setSite, sites.data, turnTo],
+  )
+
+  /** A tap on bare ground is not a point of its own any more: it snaps to the nearest site. */
+  const pickNearest = useCallback(
+    (lat: number, lon: number) => {
+      const near = nearestSite(placed, lat, lon)
+      if (!near) return
+      choose(near.site.id, false)
+      setSnapped({ id: near.site.id, km: near.km })
+    },
+    [choose, placed],
+  )
+
+  // the ten sites sit in one cluster: frame it once, as soon as we know where they are
   useEffect(() => {
-    if (started.current || !siteId) return
-    const c = siteId.startsWith('custom:') ? siteId.slice(7).split(',').map(Number) : null
-    if (c && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
-      started.current = true
-      place(c[0], c[1])
+    if (framedOnce.current || !placed.length) return
+    framedOnce.current = true
+    showPole()
+  }, [placed.length, showPole])
+
+  const sunMe = useSunDirection(t)
+  const sunScene = sunMe ? (meToScene(sunMe) as [number, number, number]) : null
+  const sub = sunMe ? toLatLon(sunMe) : null
+
+  const ids = useMemo(() => all.map((s) => s.id), [all])
+  const onListKey = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key === 'Enter' && selected) {
+      e.preventDefault()
+      navigate('/horizon')
       return
     }
-    const s = list.find((x) => x.id === siteId)
-    if (s && s.lat !== null && s.lon !== null) {
-      started.current = true
-      place(s.lat, s.lon)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, list])
-
-  const onHeights = useCallback((g: { spreadM: number; label: string } | null) => setFromModel(g ? { spreadM: g.spreadM, label: g.label } : null), [])
-
-  const place = (lat: number, lon: number) => {
-    const p = { lat: roundCoord(lat), lon: roundCoord(normalizeLon(lon)) }
-    setPin(p)
-    setText({ lat: String(p.lat), lon: String(p.lon) })
-  }
-
-  const lookAt = (lat: number, lon: number, distance = 2.6) => {
-    focusKey.current += 1
-    setFocus({ dir: dirFromLatLon(lat, lon) as [number, number, number], distance, key: focusKey.current })
-  }
-
-  const pickSite = (id: string) => {
-    const s = list.find((x) => x.id === id)
-    if (!s || s.lat === null || s.lon === null) return
-    setSite(id)
-    place(s.lat, s.lon)
-  }
-
-  const typed = { lat: Number(text.lat), lon: Number(text.lon) }
-  const typedOk = text.lat.trim() !== '' && text.lon.trim() !== '' && Number.isFinite(typed.lat) && Number.isFinite(typed.lon) && Math.abs(typed.lat) <= 90 && typed.lon >= -180 && typed.lon <= 360
-
-  const terrainTier = !pin
-    ? null
-    : pin.lat <= DEM240_LAT_LIMIT
-      ? 'LOLA 240 m model'
-      : hasGrid
-        ? 'coarse global grid'
-        : fromModel
-          ? 'coarse, read off this model'
-          : 'no model: smooth sphere'
-  const near = pin ? nearestSite(list, pin.lat, pin.lon) : null
-  /** within a tile of a prepared site: use its full-quality data instead of a custom point */
-  const samePrepared = near && near.km < 5 ? near.site : null
-
-  const openHere = () => {
-    if (!pin) return
-    setSite(samePrepared ? samePrepared.id : customId(pin.lat, pin.lon))
-    navigate('/horizon')
+    const next = moveSelection(ids, siteId, e.key, COLUMNS)
+    if (!next) return
+    e.preventDefault()
+    choose(next)
+    cardRefs.current.get(next)?.focus()
   }
 
   const modelNote =
@@ -158,174 +145,244 @@ export default function GlobePage() {
           : `The model could not be used (${model.reason}); a plain sphere stands in for it.`
       : null
 
+  const lit = (s: Site) => (typeof s.nasa_avg_illumination_percent === 'number' ? s.nasa_avg_illumination_percent : null)
+
   return (
     <div className="page globe">
       <PageHead
-        stamp={`Sheet 00 / The whole Moon / ${model.kind === 'model' ? 'LRO relief model' : model.kind === 'sphere' ? 'sphere stand-in' : 'loading'}`}
-        title="Pick any point on the Moon"
-        lede="Turn the globe and tap where you would land. The Sun lights it from the true direction of that moment; the ten prepared sites are the blue dots at the south pole."
+        stamp={`Sheet 00 / The whole Moon / ${placed.length} prepared sites`}
+        title="Choose a landing site"
+        lede="Turn the globe and pick one of the sites we have full NASA data for — on the globe or in the list below — then open the view from the ground."
       />
 
-      <section className="panel scene-panel" aria-label="Globe">
-        <div className="scene-cap label">
-          <span>
-            {model.kind === 'model'
-              ? `Model: ${model.url.split('/').pop()}, ${model.triangles.toLocaleString('en-US')} triangles`
-              : model.kind === 'sphere'
-                ? `Sphere stand-in, 1737.4 km radius${model.textured ? ', textured' : ''}`
-                : 'Loading the model…'}
-          </span>
-          <span>{dateTimeUtc(t)}</span>
-        </div>
-        <div className="stage globe-stage">
-          <Suspense fallback={<div className="stage-loading">Loading the globe…</div>}>
-            <GlobeScene
-              sunDir={sunScene}
-              sites={list}
-              selectedId={siteId}
-              pick={pin}
-              onPick={place}
-              onPickSite={pickSite}
-              showOrientation={showOrientation}
-              frame={orientation.frame}
-              spin={orientation.spin}
-              onModel={setModel}
-              onHeights={onHeights}
-              focus={focus}
-            />
-          </Suspense>
-        </div>
-
-        <div className="status">
-          <p aria-live="polite">
-            <b>Picked</b>{' '}
-            {pin ? (
-              <>
-                {fmtLatLon(pin.lat, pin.lon)}
-                {samePrepared ? ` / site ${siteNo(sites.data, samePrepared.id)} ${samePrepared.name}, full-quality data` : near ? ` / ${near.km.toFixed(0)} km from site ${siteNo(sites.data, near.site.id)} ${near.site.name}` : ''}
-              </>
-            ) : (
-              'nothing yet — tap the globe, or type the coordinates below'
-            )}
-          </p>
-          <p>
-            <b className="sun-t">Sun overhead at</b> {sub ? fmtLatLon(sub[0], sub[1]) : '…'}
-          </p>
-          <p>
-            <b>Terrain there</b> {samePrepared ? 'LOLA 5 m site model' : (terrainTier ?? '—')} / <b>Sun and Earth</b> always exact
-          </p>
-        </div>
-      </section>
-
-      {fromModel && (
-        <p className="label">
-          Relief found in this model: {(fromModel.spreadM / 1000).toFixed(1)} km from the lowest point to the highest. Away from the south pole, your own points borrow it —
-          coarsely, and the 3D sheet says so.
-        </p>
-      )}
-
-      {modelNote && (
-        <Notice title="Globe model">
-          {modelNote} Everything else on this sheet — the Sun direction, the picking, the coordinates — works either way.
+      {sites.error ? (
+        <Notice tone="error" title="Could not load the site list">
+          {sites.error.message}. Check the connection and reload the page.
         </Notice>
-      )}
-
-      <section className="panel" aria-label="Choose a point">
-        <div className="panel-head">
-          <h2>Choose a point</h2>
-          <span className="label">Latitude −90…90, east longitude 0…360</span>
-        </div>
-        <div className="panel-pad">
-          <form
-            className="row"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (typedOk) {
-                place(typed.lat, typed.lon)
-                lookAt(typed.lat, normalizeLon(typed.lon))
-              }
-            }}
-          >
-            <div className="field">
-              <label htmlFor="glat">Latitude</label>
-              <input id="glat" inputMode="decimal" value={text.lat} placeholder="−89.45" onChange={(e) => setText({ ...text, lat: e.target.value })} aria-invalid={!typedOk && text.lat !== ''} />
+      ) : sites.loading ? (
+        <div className="skeleton page-skeleton" aria-busy="true" />
+      ) : (
+        <>
+          <section className="panel scene-panel" aria-label="Globe">
+            <div className="scene-cap label">
+              <span>
+                {model.kind === 'model'
+                  ? `Model: ${model.url.split('/').pop()}, ${model.triangles.toLocaleString('en-US')} triangles`
+                  : model.kind === 'sphere'
+                    ? `Sphere stand-in, 1737.4 km radius${model.textured ? ', textured' : ''}`
+                    : 'Loading the model…'}
+              </span>
+              <span>{dateTimeUtc(t)}</span>
             </div>
-            <div className="field">
-              <label htmlFor="glon">Longitude, east</label>
-              <input id="glon" inputMode="decimal" value={text.lon} placeholder="222.7" onChange={(e) => setText({ ...text, lon: e.target.value })} aria-invalid={!typedOk && text.lon !== ''} />
+            <div className="stage globe-stage">
+              <Suspense fallback={<div className="stage-loading">Loading the globe…</div>}>
+                <GlobeScene
+                  sunDir={sunScene}
+                  sites={placed}
+                  selectedId={selected?.id ?? null}
+                  hoveredId={hovered}
+                  onPickNearest={pickNearest}
+                  onPickSite={(id) => choose(id, false)}
+                  onHoverSite={setHovered}
+                  showOrientation={showOrientation}
+                  frame={orientation.frame}
+                  spin={orientation.spin}
+                  onModel={setModel}
+                  onHeights={() => undefined}
+                  focus={focus}
+                />
+              </Suspense>
             </div>
-            <button className="btn ghost" type="submit" disabled={!typedOk}>
-              Put the pin there
-            </button>
-          </form>
 
-          <div className="toolbar" style={{ marginTop: 12 }}>
-            <button className="btn" type="button" disabled={!pin} onClick={openHere}>
-              Open 3D view here
+            <div className="status">
+              <p aria-live="polite">
+                <b>Chosen</b> {selected ? `${siteNo(numbering, selected.id)} ${selected.name}` : 'nothing yet — tap a marker or a card'}
+                {snapped && selected?.id === snapped.id ? ` / nearest to your tap, ${snapped.km.toFixed(0)} km away` : ''}
+              </p>
+              <p>
+                <b className="sun-t">Sun overhead at</b> {sub ? formatLatLon(sub[0], sub[1], 1) : '…'}
+              </p>
+              <p>
+                <b>Sites</b> {placed.length} with full LOLA data{all.length > placed.length ? `, ${all.length - placed.length} without a position` : ''}
+              </p>
+            </div>
+          </section>
+
+          <div className="toolbar" style={{ marginTop: 14 }}>
+            <button className="btn" type="button" disabled={!selected} onClick={() => navigate('/horizon')}>
+              Open 3D view
             </button>
+            <a className="btn ghost" href={href('/map')} aria-disabled={!selected}>
+              Open on the map
+            </a>
             <div className="seg" role="group" aria-label="Turn the globe to">
-              <button type="button" onClick={() => lookAt(-90, 0, 2.2)}>
+              <button type="button" onClick={showPole}>
                 South pole
               </button>
-              <button type="button" onClick={() => lookAt(0, 0, 2.8)}>
+              <button type="button" onClick={() => turnTo(0, 0, 2.8)}>
                 Near side
               </button>
-              <button type="button" onClick={() => lookAt(0, 180, 2.8)}>
+              <button type="button" onClick={() => turnTo(0, 180, 2.8)}>
                 Far side
               </button>
             </div>
-            <span className="hint">Drag to turn / Ctrl + wheel or pinch to zoom / tap to drop the pin</span>
+            <span className="hint">Drag to turn / Ctrl + wheel or pinch to zoom / tap the globe for the nearest site</span>
           </div>
+
+          {modelNote && <Notice title="Globe model">{modelNote} The sites, the Sun and the picking all work either way.</Notice>}
+
+          {selected && (
+            <section className="panel site-card" aria-label={`Site ${siteNo(numbering, selected.id)} ${selected.name}`} style={{ marginTop: 14 }}>
+              <div className="card-title">
+                <h2>
+                  <span className="label" style={{ marginRight: 10 }}>
+                    {siteNo(numbering, selected.id)}
+                  </span>
+                  {selected.name}
+                </h2>
+                <span className="label">{selected.has_5m ? 'LOLA 5 m site model' : 'LOLA 240 m'}{selected.mock ? ' / sample data' : ''}</span>
+              </div>
+              <p className="coord">
+                {hasPosition(selected) ? formatLatLon(selected.lat, selected.lon) : 'No position in the data'}
+                {typeof selected.elevation_m === 'number' ? ` / ${Math.round(selected.elevation_m).toLocaleString('en-US')} m above the 1737.4 km sphere` : ''}
+              </p>
+              <div className="cells">
+                <div className="cell">
+                  <span className="label">NASA average sunlight</span>
+                  <span className="num mid">{lit(selected) === null ? 'n/a' : pct(lit(selected))}</span>
+                  {lit(selected) !== null && (
+                    <span aria-hidden="true" style={{ display: 'block', height: 6, background: 'var(--line)' }}>
+                      <span style={{ display: 'block', height: '100%', width: `${lit(selected)}%`, background: 'var(--sun)' }} />
+                    </span>
+                  )}
+                </div>
+                <div className="cell">
+                  <span className="label">Elevation</span>
+                  <span className="num mid">
+                    {typeof selected.elevation_m === 'number' ? Math.round(selected.elevation_m).toLocaleString('en-US') : 'n/a'} <small>m</small>
+                  </span>
+                  <span className="label" style={{ textTransform: 'none' }}>
+                    {selected.source}
+                  </span>
+                </div>
+              </div>
+              <div className="card-actions">
+                <button type="button" className="btn" onClick={() => navigate('/horizon')}>
+                  Open 3D view
+                </button>
+                <a className="btn ghost" href={href('/timeline')}>
+                  Timeline
+                </a>
+              </div>
+            </section>
+          )}
+
+          <section className="panel" aria-label="All sites" style={{ marginTop: 14 }}>
+            <div className="panel-head">
+              <h2>All sites</h2>
+              <div className="seg" role="group" aria-label="Order">
+                {SORTS.map((s) => (
+                  <button key={s.key} type="button" aria-pressed={sortKey === s.key} onClick={() => setSortKey(s.key)}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="panel-pad">
+              {all.length === 0 ? (
+                <Notice title="No sites in the data yet">
+                  The site list is empty. The sheets fall back to sample data until <span className="mono">data/sites.json</span> is published.
+                </Notice>
+              ) : (
+                <ul className="index" onKeyDown={onListKey}>
+                  {all.map((s) => {
+                    const on = s.id === selected?.id
+                    const placedSite = hasPosition(s)
+                    return (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          ref={(el) => {
+                            if (el) cardRefs.current.set(s.id, el)
+                            else cardRefs.current.delete(s.id)
+                          }}
+                          aria-pressed={on}
+                          disabled={!placedSite}
+                          onClick={() => choose(s.id)}
+                          onMouseEnter={() => setHovered(s.id)}
+                          onMouseLeave={() => setHovered(null)}
+                          onFocus={() => setHovered(s.id)}
+                          onBlur={() => setHovered(null)}
+                        >
+                          <span className="no">{siteNo(numbering, s.id)}</span>
+                          <span className="nm">
+                            {s.name}
+                            <span className="label" style={{ display: 'block', textTransform: 'none' }}>
+                              {placedSite ? formatLatLon(s.lat, s.lon, 2) : 'no position'}
+                            </span>
+                          </span>
+                          <span className="pc">{lit(s) === null ? '—' : `${lit(s)!.toFixed(0)}%`}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <p className="label" style={{ marginTop: 10 }}>
+                Arrow keys move the choice, Enter opens the 3D view. The percentage is the NASA 18.6-year average sunlight at the point.
+              </p>
+            </div>
+          </section>
 
           <div className="play-row" style={{ marginTop: 14 }}>
             <TimeSlider from={from} to={to} value={t} onChange={setTime} />
           </div>
-        </div>
-      </section>
 
-      <section className="panel" aria-label="Model orientation">
-        <div className="panel-head">
-          <h2>Is the model oriented correctly?</h2>
-          <span className="label">Three known places (GLOBE.md)</span>
-        </div>
-        <div className="panel-pad">
-          <div className="toolbar">
-            <button className="btn ghost" type="button" aria-pressed={showOrientation} onClick={() => setShowOrientation((v) => !v)}>
-              {showOrientation ? 'Hide the markers' : 'Show the markers'}
-            </button>
-            <div className="seg" role="group" aria-label="Model axes">
-              <button type="button" aria-pressed={orientation.frame === 'scene'} onClick={() => setOrientation({ ...orientation, frame: 'scene' })}>
-                Model is y-up
-              </button>
-              <button type="button" aria-pressed={orientation.frame === 'me'} onClick={() => setOrientation({ ...orientation, frame: 'me' })}>
-                Model is MOON_ME
-              </button>
+          <section className="panel" aria-label="Model orientation" style={{ marginTop: 14 }}>
+            <div className="panel-head">
+              <h2>Is the model oriented correctly?</h2>
+              <span className="label">Three known places (GLOBE.md)</span>
             </div>
-            <div className="seg" role="group" aria-label="Turn the model about the polar axis">
-              {[-90, -10, 10, 90].map((d) => (
-                <button key={d} type="button" onClick={() => setOrientation({ ...orientation, spin: normalizeLon(orientation.spin + d) })}>
-                  {d > 0 ? `+${d}°` : `${d}°`}
+            <div className="panel-pad">
+              <div className="toolbar">
+                <button className="btn ghost" type="button" aria-pressed={showOrientation} onClick={() => setShowOrientation((v) => !v)}>
+                  {showOrientation ? 'Hide the markers' : 'Show the markers'}
                 </button>
-              ))}
-              <button type="button" onClick={() => setOrientation({ frame: GLOBE_MODEL_FRAME, spin: GLOBE_MODEL_SPIN_DEG })}>
-                Reset
-              </button>
+                <div className="seg" role="group" aria-label="Model axes">
+                  <button type="button" aria-pressed={orientation.frame === 'scene'} onClick={() => setOrientation({ ...orientation, frame: 'scene' })}>
+                    Model is y-up
+                  </button>
+                  <button type="button" aria-pressed={orientation.frame === 'me'} onClick={() => setOrientation({ ...orientation, frame: 'me' })}>
+                    Model is MOON_ME
+                  </button>
+                </div>
+                <div className="seg" role="group" aria-label="Turn the model about the polar axis">
+                  {[-90, -10, 10, 90].map((d) => (
+                    <button key={d} type="button" onClick={() => setOrientation({ ...orientation, spin: normalizeLon(orientation.spin + d) })}>
+                      {d > 0 ? `+${d}°` : `${d}°`}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => setOrientation({ frame: GLOBE_MODEL_FRAME, spin: GLOBE_MODEL_SPIN_DEG })}>
+                    Reset
+                  </button>
+                </div>
+                <span className="label">spin {orientation.spin.toFixed(0)}°</span>
+              </div>
+              <ul className="label" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                {ORIENTATION_MARKERS.map((m, i) => (
+                  <li key={m.label}>
+                    <span style={{ color: ['#6ee7a8', '#ff8fd0', '#ffe066'][i] }}>■</span> {m.label} — {m.hint}
+                  </li>
+                ))}
+              </ul>
+              <p className="label">
+                All three in place means the globe and the data agree, so the markers sit where the sites really are. When they do not, turn the model
+                here and write the result into GLOBE_MODEL_FRAME and GLOBE_MODEL_SPIN_DEG in <span className="mono">view3d/globe/frame.ts</span>.
+              </p>
             </div>
-            <span className="label">spin {orientation.spin.toFixed(0)}°</span>
-          </div>
-          <ul className="label" style={{ marginTop: 10, lineHeight: 1.7 }}>
-            {ORIENTATION_MARKERS.map((m, i) => (
-              <li key={m.label}>
-                <span style={{ color: ['#6ee7a8', '#ff8fd0', '#ffe066'][i] }}>■</span> {m.label} — {m.hint}
-              </li>
-            ))}
-          </ul>
-          <p className="label">
-            All three in place means the globe and the data agree, and a tap gives the right coordinates. When they do not, turn the model here and write the result into
-            GLOBE_MODEL_FRAME and GLOBE_MODEL_SPIN_DEG in <span className="mono">view3d/globe/frame.ts</span>.
-          </p>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
     </div>
   )
 }
