@@ -40,11 +40,12 @@ p, li { font-size: 32px; line-height: 1.4; color: var(--ink-2); margin: 0; }
 .pipe > div { padding: 30px; display: flex; flex-direction: column; gap: 14px; }
 .pipe > div + div { border-left: 2px solid var(--line); }
 .pipe b { font-family: var(--f-head); font-size: 46px; text-transform: uppercase; }
-.pipe span { font-size: 27px; color: var(--ink-2); line-height: 1.35; }
+.pipe span { font-size: 30px; color: var(--ink-2); line-height: 1.35; }
 .link { font-family: var(--f-mono); font-size: 34px; font-weight: 600; color: var(--ink); }
 ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 14px; }
 .inv { background: var(--ink); color: var(--white); padding: 34px 40px; }
 .inv p { color: #dfe3e8; }
+.s7 li { font-size: 36px; }
 .todo { color: #b42318; font-weight: 600; }
 @media print {
   @page { size: 1920px 1080px; margin: 0; }
@@ -73,7 +74,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
 </section></div>
 
 <!-- 2. Problem -->
-<div class="wrap"><section class="slide" aria-label="Problem">
+<div class="wrap"><section class="slide" aria-label="Problem" style="gap:26px">
   <span class="stamp">02 / The problem</span>
   <h2>At the pole the Sun skims the horizon</h2>
   <div class="panel three">
@@ -81,7 +82,8 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     <div><span class="lab">Guaranteed sunlight, one site</span><span class="num">68 → 89 %</span><p>When a panel goes from 1 m to 5 m above the ground (Barker et al. 2021).</p></div>
     <div><span class="lab">Earth, same point and day</span><span class="num earth">−3.6°</span><p>Below the horizon: no direct radio even without any mountains.</p></div>
   </div>
-  <p style="max-width:1500px">A hill kilometres away, a move of a few hundred metres or a shift of a few days decides whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
+  <p style="font-size:36px">A hill kilometres away, a move of a few hundred metres or a shift of a few days decides whether a lander has power and can talk to Earth. Planners, teachers and the public need to see this per site and per date.</p>
+  <img class="shot" src="img/why-diagrams.png" alt="Diagrams from the site's Why sheet: the Sun circles the horizon 1 to 2 degrees up; a peak is lit while the crater floor stays dark" style="flex:1;min-height:0;object-fit:cover;object-position:center bottom">
   <div class="foot"><span>JPL Horizons, queried 12 Nov 2026 / Barker et al. 2021, doi:10.1016/j.pss.2020.105119</span><span>2 / 7</span></div>
 </section></div>
 
@@ -89,12 +91,14 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
 <div class="wrap"><section class="slide" aria-label="Solution">
   <span class="stamp">03 / What it does</span>
   <h2>Compare sites, dates and the light right now</h2>
-  <div class="cols" style="grid-template-columns: 1fr 1.25fr 0.8fr">
-    <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Sites side by side</span><img class="shot fit" src="img/compare.png" alt="Comparison table of three sites over the darkest 30 days"></div>
-    <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Sun and Earth over the real horizon</span><img class="shot fit" src="img/timeline.png" alt="Sun and Earth elevation against the real horizon over 30 days"></div>
-    <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Now: light and shadow</span><img class="shot fit" src="img/map-now.png" alt="Now layer: light and shadow over the whole south pole at the chosen hour"></div>
+  <div class="cols" style="grid-template-columns: 1010px 1fr; gap:40px; flex:none">
+    <div style="display:flex;flex-direction:column;gap:12px"><span class="lab">Sites side by side</span><img class="shot" src="img/compare.png" alt="Comparison table of three sites over the darkest 30 days" style="height:auto"></div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span class="lab">Sun and Earth over the real horizon</span><img class="shot" src="img/timeline-chart.png" alt="Sun and Earth elevation against the real horizon over 30 days" style="height:auto">
+      <span class="lab" style="margin-top:8px">Now: light and shadow</span><img class="shot" src="img/map-now-band.png" alt="Now layer: light and shadow over the south pole at the chosen hour" style="height:auto">
+    </div>
   </div>
-  <p style="max-width:1650px">Pick any period: the darkest 30 days, a mission window or a whole year. Every site number is computed from NASA data files.</p>
+  <p style="font-size:30px">Pick any period: the darkest 30 days, a mission window or a whole year. Every site number is computed from NASA data files.</p>
   <div class="foot"><span>Sunlit share, darkness, Earth in view, sunset and Earthset / Now layer at any hour</span><span>3 / 7</span></div>
 </section></div>
 
@@ -108,7 +112,10 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
     <div><b>Metrics</b><span>Visible part of the solar disc, sunlit share, longest darkness, Earth windows, next sunset and Earthset, every hour for a year.</span></div>
     <div><b class="earth">Website</b><span>Static files on GitHub Pages, so it never sleeps. Any period is summarised in the browser.</span></div>
   </div>
-  <p style="max-width:1600px">Same rule as NASA's illumination maps: the Sun counts as visible while any part of its disc is above the terrain.</p>
+  <div style="display:grid;grid-template-columns:1fr 1180px;gap:44px;align-items:center">
+    <p style="font-size:36px">Same rule as NASA's illumination maps: the Sun counts as visible while any part of its disc is above the terrain.</p>
+    <img class="shot" src="img/horizon-strip.png" alt="Live 3D scene on the site: the Sun 1.63 degrees up over LOLA terrain, with its azimuth and the time to sunset" style="height:auto">
+  </div>
   <div class="foot"><span>Python: spiceypy, numpy, numba, rasterio, FastAPI / React, TypeScript, three.js</span><span>4 / 7</span></div>
 </section></div>
 
@@ -134,7 +141,7 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
   <div class="cols" style="grid-template-columns: 1.5fr 1fr">
     <img src="img/above.png" alt="3D view from above: the real terrain casts long shadows with the Sun 1.6 degrees high" class="shot fit">
     <div style="display:flex;flex-direction:column;gap:24px">
-      <img class="shot" src="img/pano.png" alt="The whole horizon unrolled with the paths of the Sun and the Earth" style="height:300px">
+      <img class="shot" src="img/pano.png" alt="The whole horizon unrolled with the paths of the Sun and the Earth" style="height:auto">
       <ul>
         <li>LOLA terrain casts real shadows that move with the time slider; eye level or from above.</li>
         <li>Instrument height 1, 2, 5 or 10 m on Timeline and Horizon; a whole-year mast table on Compare.</li>
@@ -146,12 +153,12 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
 </section></div>
 
 <!-- 7. NASA data and next -->
-<div class="wrap"><section class="slide" aria-label="NASA data and next steps">
+<div class="wrap"><section class="slide s7" aria-label="NASA data and next steps">
   <span class="stamp">07 / NASA data at the core</span>
   <h2>What we used, what comes next</h2>
-  <div class="cols">
+  <div class="cols" style="grid-template-columns: 1fr 0.78fr auto; align-items:stretch">
     <div class="panel" style="padding:32px 40px"><span class="lab">NASA data</span>
-      <ul style="margin-top:16px">
+      <ul style="margin-top:16px;gap:20px">
         <li>NAIF SPICE generic kernels (NASA/JPL)</li>
         <li>LOLA polar elevation models, LRO (PDS Geosciences)</li>
         <li>LOLA 5 m site models (PGDA, Barker et al. 2021)</li>
@@ -160,12 +167,13 @@ ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap:
       </ul>
     </div>
     <div class="inv"><span class="lab" style="color:#c9ced4">Next</span>
-      <ul style="margin-top:16px;color:#dfe3e8">
+      <ul style="margin-top:16px;gap:20px;color:#dfe3e8">
         <li style="color:#dfe3e8">Relay satellite windows when Earth is hidden</li>
         <li style="color:#dfe3e8">More sites from published Artemis regions</li>
         <li style="color:#dfe3e8">Finer terrain for the points users choose</li>
       </ul>
     </div>
+    <img class="shot" src="img/card.png" alt="Site card on the live site: Shackleton rim, sunlit share, Earth in view, longest darkness" style="height:670px;width:auto">
   </div>
   <p class="link" style="font-size:28px">evge14n.github.io/spaceu-lunar-navigator · github.com/Evge14n/spaceu-lunar-navigator</p>
   <div class="foot"><span>Open source, Apache-2.0</span><span>7 / 7</span></div>
