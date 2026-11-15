@@ -153,7 +153,9 @@ export default function GlobePage() {
     model.kind === 'sphere'
       ? model.reason === 'no model file yet'
         ? 'No relief model yet: a plain sphere stands in for it. Drop moon.glb into frontend/public/moon/ (see GLOBE.md) and reload.'
-        : `The model could not be used (${model.reason}); a plain sphere stands in for it.`
+        : /no meshes/.test(model.reason)
+          ? 'The file loaded, but it is empty — it has no meshes in it, only a scene. In Blender, select the Moon object and export with File ▸ Export ▸ glTF 2.0 (.glb), with “Include ▸ Selected Objects” either off or the Moon actually selected. A plain sphere stands in meanwhile.'
+          : `The model could not be used (${model.reason}); a plain sphere stands in for it.`
       : null
 
   return (

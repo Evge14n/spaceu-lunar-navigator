@@ -26,12 +26,19 @@ Pure modules are unit tested: `frame.test.ts`, `tile.test.ts`, `route.test.ts`, 
 Put it at **`frontend/public/moon/moon.glb`** (`public/models/moon.glb` also works). It is copied
 to the site as is and is loaded only on `#/globe`, lazily, inside the three.js chunk.
 
-What the page does with it, and what it therefore assumes:
+What the page does with it, and what it therefore assumes (all of it in `globe/fit.ts`):
 
-- **Scale.** The bounding sphere of the loaded scene is measured and the model is scaled so that
-  its radius is 1 scene unit = **1737.4 km**. Metres, kilometres or radii in the file all work; a
-  model that is not a whole globe (a crop, a flattened tile) does not.
-- **Centre.** The bounding sphere centre is moved to the origin, so an off-centre export is fine.
+- **Scale.** Every *mesh* is measured on its own, from its vertices. Meshes more than 3× the
+  median radius are dropped (a sky dome, a backdrop plane), and so are meshes with under 2 % of
+  the triangles of the most detailed one while being larger than the median (a coarse huge shell).
+  What is left is normalised together — a globe cut into tiles still comes out whole — so that its
+  radius is 1 scene unit = **1737.4 km**. Metres, kilometres or radii in the file all work;
+  cameras, lights and empties are ignored. A model that is not a whole globe (a crop, a flat tile)
+  does not work.
+- **Centre.** The centre of what was kept is moved to the origin, so an off-centre export is fine.
+- **Camera.** The view distance is computed from the fitted radius and the shape of the window
+  (on a phone held upright the width is the tight side), and the near and far planes follow from
+  it, so the globe always arrives fully in frame.
 - **Orientation.** The scene frame is the one of `src/api/sun.ts`: **x = 0° N 90° E, y = north
   pole, z = 0° N 0° E** (the near side faces a camera on +z). `GLOBE_MODEL_FRAME` in
   `globe/frame.ts` says which frame the file itself is in — `'scene'` (already y-up, the default)
@@ -49,6 +56,23 @@ What the page does with it, and what it therefore assumes:
   `public/moon/moon.webp`, `moon.jpg`, or `moon-1024.webp` on phones, if any of them is there),
   with a small notice. Nothing else on the sheet changes: the Sun, the picking and the coordinates
   all work on the stand-in.
+
+### When nothing shows up
+
+Add `?debug` to the address **before the `#`** (the sheets rewrite what comes after it), for
+example `…/#/globe` → `…/?debug#/globe`, and the console gets one `[globe]` report: the node and
+mesh list with each mesh's triangle count, bounding box, bounding sphere and whether it was dropped,
+then the radius and the scale that were applied, then the fitted camera distance and planes.
+
+Two failures look identical on screen (a black stage) and are told apart there:
+
+- **the file is empty.** A Blender export with nothing selected is about 130 bytes and contains a
+  scene and no nodes at all. The page now detects this, falls back to the sphere and says so.
+- **the model is inside something huge.** Handled by the mesh rules above; the report shows which
+  meshes were dropped and why.
+
+Two more safety nets: every material is drawn on both faces, so a globe with flipped normals is
+still visible, and a weak ambient light keeps the night side dark rather than pure black.
 
 ### Checking the orientation
 
