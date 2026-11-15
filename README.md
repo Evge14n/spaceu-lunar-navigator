@@ -4,6 +4,8 @@ NASA Space Apps Challenge 2026, challenge **Lunar Landing Site Navigator**. Team
 
 A web tool that compares landing sites and dates at the lunar south pole by two things a mission cannot do without: **sunlight** (power) and **a view of Earth** (direct communication). Pick sites and a period, and see how much of the time each site is lit, how long the longest darkness lasts, when Earth is visible, and how many hours remain until the next sunset and Earthset, with the real mountains on the horizon taken into account.
 
+**Live site:** https://evge14n.github.io/spaceu-lunar-navigator/ · **Demo, 7 slides (PDF):** https://evge14n.github.io/spaceu-lunar-navigator/slides/demo.pdf
+
 ## What is inside
 
 | Folder | What | Owner |

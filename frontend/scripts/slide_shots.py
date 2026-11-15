@@ -13,7 +13,9 @@ SHOTS = {
     "compare": ("#/compare?cmp=site01,site04,site06", ".panel:has(.cmp)", 2, "Darkest 30 days"),
     "mast": ("#/compare?cmp=site01,site04,site06", ".panel:has(.cmp) >> nth=1", 2, None),
     "timeline": ("#/timeline?site=site04", ".chart-panel", 2, "Darkest 30 days"),
+    "map-now": ("#/map?site=site04", ".map-sheet .plate", 3, "Now"),
     "horizon": ("#/horizon?site=site04", ".scene-panel", 7, None),
+    "above": ("#/horizon?site=site04", ".scene-panel", 7, "From above"),
     "pano": ("#/horizon?site=site04", ".panel:has(.pano)", 3, None),
     "accuracy": ("#/accuracy", ".panel:has(.acc-rows)", 2, None),
     "why": ("#/why", ".why-grid", 2, None),
@@ -28,7 +30,7 @@ with sync_playwright() as p:
         time.sleep(wait)
         if action:
             pg.get_by_role("button", name=action).click()
-            time.sleep(1.5)
+            time.sleep(4 if action in ("Now", "From above") else 1.5)
         pg.locator(sel).first.screenshot(path=os.path.join(OUT, f"{name}.png"))
         print("saved", name)
         pg.close()
