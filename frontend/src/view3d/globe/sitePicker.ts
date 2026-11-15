@@ -13,18 +13,23 @@ export const hasPosition = (s: Site): s is PlacedSite => typeof s.lat === 'numbe
 export type SortKey = 'id' | 'name' | 'lit' | 'elevation'
 
 /** Default order is the order of data/sites.json (by id), which is the numbering the sheets show. */
-export function sortSites(sites: Site[], key: SortKey = 'id'): Site[] {
+export function sortSites(sites: Site[], key: SortKey = 'id', litOf?: (s: Site) => number | null | undefined): Site[] {
   const copy = [...sites]
   const num = (v: number | null | undefined) => (typeof v === 'number' ? v : Number.NEGATIVE_INFINITY)
   switch (key) {
     case 'name':
       return copy.sort((a, b) => a.name.localeCompare(b.name))
     case 'lit':
-      return copy.sort((a, b) => num(b.nasa_avg_illumination_percent) - num(a.nasa_avg_illumination_percent) || a.id.localeCompare(b.id))
+      return copy.sort((a, b) => {
+        const la = litOf ? litOf(a) : a.nasa_avg_illumination_percent
+        const lb = litOf ? litOf(b) : b.nasa_avg_illumination_percent
+        return num(lb) - num(la) || a.id.localeCompare(b.id)
+      })
     case 'elevation':
       return copy.sort((a, b) => num(b.elevation_m) - num(a.elevation_m) || a.id.localeCompare(b.id))
     default:
-      return copy.sort((a, b) => a.id.localeCompare(b.id))
+      // "By number": the site numbers 01..10 are positions in sites.json, as on the map
+      return copy
   }
 }
 
@@ -134,10 +139,9 @@ export function pickLabels(items: LabelCandidate[], opts: { height?: number; pad
 
 /** "89.6864° S / 197.0629° E", the way the sheets write coordinates. */
 export function formatLatLon(lat: number, lon: number, digits = 4): string {
+  // east longitude 0..360, the same notation as the map and the rest of the site
   const east = ((lon % 360) + 360) % 360
-  const westish = east > 180 ? 360 - east : east
-  const ew = east === 0 || east === 180 ? 'E' : east > 180 ? 'W' : 'E'
-  return `${Math.abs(lat).toFixed(digits)}° ${lat < 0 ? 'S' : 'N'} / ${westish.toFixed(digits)}° ${ew}`
+  return `${Math.abs(lat).toFixed(digits)}° ${lat < 0 ? 'S' : 'N'} / ${east.toFixed(digits)}° E`
 }
 
 /** Move the selection with the arrow keys; returns the id to select, or null if nothing changes. */

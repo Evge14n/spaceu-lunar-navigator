@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatHours, isCustom, periodPresets, summarize, timesMs, useHeights, useSites, useTimelines, type Summary } from '../api'
 import { clampPeriod, PeriodMovedNote, PeriodPicker } from '../components/Controls'
 import { Notice } from '../components/Notice'
@@ -72,9 +72,17 @@ export default function ComparePage() {
     return { f, e, ms, sums, moved, presets: periodPresets(tls.data) }
   }, [tls.data, chosen, list, from, to])
 
+  const full = chosen.length >= 4
+  const [nudge, setNudge] = useState(0)
+  useEffect(() => {
+    if (!nudge) return
+    const timer = window.setTimeout(() => setNudge(0), 2600)
+    return () => window.clearTimeout(timer)
+  }, [nudge])
   const toggle = (id: string) => {
     if (chosen.includes(id)) setCompare(chosen.filter((x) => x !== id))
     else if (chosen.length < 4) setCompare([...chosen, id])
+    else setNudge((n) => n + 1)
   }
 
   const f = result?.f ?? from
@@ -89,13 +97,20 @@ export default function ComparePage() {
 
       <div className="toolbar">
         <fieldset className="chips">
-          <legend>Sites, {chosen.length} of 4 chosen</legend>
+          <legend>
+            Sites, {chosen.length} of 4 chosen
+            {full && (
+              <span className={`chips-hint${nudge ? ' nudge' : ''}`} key={nudge} role="status">
+                Up to four — remove one to add another
+              </span>
+            )}
+          </legend>
           {custom && (
-            <label key={custom} className={`chip${chosen.includes(custom) ? ' on' : ''}`}>
+            <label key={custom} className={`chip${chosen.includes(custom) ? ' on' : full ? ' off' : ''}`}>
               <input
                 type="checkbox"
                 checked={chosen.includes(custom)}
-                disabled={!chosen.includes(custom) && chosen.length >= 4}
+                aria-disabled={!chosen.includes(custom) && full ? true : undefined}
                 onChange={() => toggle(custom)}
               />
               <span className="no">--</span>
@@ -105,8 +120,8 @@ export default function ComparePage() {
           {list.map((s) => {
             const on = chosen.includes(s.id)
             return (
-              <label key={s.id} className={`chip${on ? ' on' : ''}`}>
-                <input type="checkbox" checked={on} disabled={!on && chosen.length >= 4} onChange={() => toggle(s.id)} />
+              <label key={s.id} className={`chip${on ? ' on' : full ? ' off' : ''}`}>
+                <input type="checkbox" checked={on} aria-disabled={!on && full ? true : undefined} onChange={() => toggle(s.id)} />
                 <span className="no">{siteNo(list, s.id)}</span>
                 {s.name}
               </label>
