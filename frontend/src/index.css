@@ -483,3 +483,9 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* #/globe placeholder: the same plate as the 3D scene */
+.globe-stage .stage-loading a { color: var(--white); }
+
+/* a number that leans on a coarse terrain model says so, right next to itself */
+.coarse-mark { font-style: normal; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--line); padding: 0 4px; margin-left: 6px; white-space: nowrap; }

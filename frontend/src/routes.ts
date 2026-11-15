@@ -20,5 +20,11 @@ export const routes: Route[] = [
   { path: '/accuracy', no: '06', label: 'Accuracy', short: 'Proof', component: lazy(() => import('./pages/AccuracyPage')) },
 ]
 
+/** Pages that open by link but are not in the navigation yet (work in progress). */
+export const hiddenRoutes: Route[] = [
+  // intro globe by Anastasiia Sh.: not the first screen until the model is compressed (src/view3d/GLOBE.md)
+  { path: '/globe', no: '00', label: 'Globe', short: 'Globe', component: lazy(() => import('./view3d/GlobePage')) },
+]
+
 /** Old links keep working. */
 export const aliases: Record<string, string> = { '/3d': '/horizon' }
