@@ -174,7 +174,7 @@ function Stars() {
 
 /** Sun, Earth and stars ride with the camera: they are effectively at infinity, so their
  * direction is the same from any viewpoint (no fake parallax against the terrain). */
-function SkyDome({ sky, enlarge }: { sky: Sky; enlarge: number }) {
+export function SkyDome({ sky, enlarge }: { sky: Sky; enlarge: number }) {
   const group = useRef<THREE.Group>(null)
   useFrame(({ camera }) => group.current?.position.copy(camera.position))
   const s = new THREE.Vector3(...sky.sun.dir).multiplyScalar(SKY_R)
@@ -256,7 +256,7 @@ function glowTexture() {
   return glow
 }
 
-function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
+export function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
   const ref = useRef<THREE.DirectionalLight>(null)
   const target = useMemo(() => new THREE.Object3D(), [])
   const d = new THREE.Vector3(...sky.sun.dir)
@@ -272,7 +272,7 @@ function SunLight({ sky, eyeY }: { sky: Sky; eyeY: number }) {
   )
 }
 
-function Compass({ eyeY }: { eyeY: number }) {
+export function Compass({ eyeY }: { eyeY: number }) {
   const r = 5200
   const items: [string, number][] = [['N', 0], ['E', 90], ['S', 180], ['W', 270]]
   return (
@@ -287,19 +287,33 @@ function Compass({ eyeY }: { eyeY: number }) {
 
 export type CameraMode = 'site' | 'overview'
 
-const EYE_FOV = 20
-const ABOVE_FOV = 55
+export const EYE_FOV = 20
+export const ABOVE_FOV = 55
 
-function CameraRig({
+/** How far "From above" pulls back. The tile is 10 km wide; the globe needs hundreds of km. */
+export interface OverviewView {
+  /** distance from the site, metres */
+  radius: number
+  /** height above the site, metres */
+  height: number
+  minDistance: number
+  maxDistance: number
+}
+
+export const TILE_OVERVIEW: OverviewView = { radius: 6000, height: 1800, minDistance: 500, maxDistance: 20_000 }
+
+export function CameraRig({
   mode,
   eyeY,
   lookDir,
   resetKey,
+  overview = TILE_OVERVIEW,
 }: {
   mode: CameraMode
   eyeY: number
   lookDir: [number, number, number]
   resetKey: string
+  overview?: OverviewView
 }) {
   const { camera, gl } = useThree()
   const controls = useRef<OrbitControls | null>(null)
@@ -371,15 +385,16 @@ function CameraRig({
       c.maxDistance = 0.02
       c.enableZoom = false
     } else {
-      camera.position.set(-Math.sin(az) * 6000, eye + 1800, Math.cos(az) * 6000)
+      camera.position.set(-Math.sin(az) * overview.radius, eye + overview.height, Math.cos(az) * overview.radius)
       c.target.set(0, eye, 0)
       cam.fov = ABOVE_FOV
-      c.minDistance = 500
-      c.maxDistance = 20_000
+      c.minDistance = overview.minDistance
+      c.maxDistance = overview.maxDistance
       c.enableZoom = true
     }
     cam.updateProjectionMatrix()
     c.update()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, mode, resetKey])
   return null
 }
@@ -393,7 +408,7 @@ const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 const azName = (a: number) => `${DIRS[Math.round((((a % 360) + 360) % 360) / 45) % 8]} ${Math.round(((a % 360) + 360) % 360)}°`
 
 /** Writes the elevation ladder and the azimuths at the frame edges into DOM overlays, every frame, without React renders. */
-function OverlayWriter({ refs, show }: { refs: OverlayRefs; show: boolean }) {
+export function OverlayWriter({ refs, show }: { refs: OverlayRefs; show: boolean }) {
   const v = useMemo(() => new THREE.Vector3(), [])
   const fwd = useMemo(() => new THREE.Vector3(), [])
   useFrame(({ camera, size }) => {

@@ -44,6 +44,23 @@ export function sampleModelHeights(object: THREE.Object3D, rotation: Mat3, centr
     return null
   }
 
+  // Zero level: the median radius of the model, the same one localGround.ts measures. Taking the
+  // fitted radius (which is the highest peak, normalised to 1) would put every height 3 km low and
+  // the ground you stand on and the mask behind the HUD would disagree by that much.
+  const sample: number[] = []
+  {
+    const w = new THREE.Vector3()
+    const m = new THREE.Matrix4()
+    for (const mesh of meshes) {
+      const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute
+      const step = Math.max(1, Math.floor(pos.count / 4000))
+      m.copy(inv).multiply(mesh.matrixWorld)
+      for (let i = 0; i < pos.count; i += step) sample.push(w.fromBufferAttribute(pos, i).applyMatrix4(m).sub(centre).multiplyScalar(scale).length())
+    }
+    sample.sort((a, b) => a - b)
+  }
+  const baseRadius = sample.length ? sample[sample.length >> 1] : 1
+
   const [width, height] = gridSize(vertices)
   // a very heavy model is read every k-th vertex: the grid is coarser than that anyway, and this
   // runs on the main thread while the globe is on screen
@@ -64,7 +81,7 @@ export function sampleModelHeights(object: THREE.Object3D, rotation: Mat3, centr
       v.fromBufferAttribute(pos, i).applyMatrix4(rel).sub(centre).multiplyScalar(scale)
       const r = v.length()
       if (!(r > 0)) continue
-      const h = (r - 1) * MOON_RADIUS_M
+      const h = (r / baseRadius - 1) * MOON_RADIUS_M
       const [lat, lon] = latLonFromDir(applyMat3(rotation, [v.x / r, v.y / r, v.z / r]))
       const row = Math.min(height - 1, Math.max(0, Math.floor(((90 - lat) / 180) * height)))
       const col = Math.min(width - 1, Math.max(0, Math.floor((lon / 360) * width)))

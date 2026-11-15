@@ -10,11 +10,12 @@
 // the file). What is left is normalised together, so a globe cut into tiles still comes out whole.
 
 import * as THREE from 'three'
-import { GLOBE_RADIUS } from './frame'
+import { GLOBE_RADIUS, MOON_RADIUS_M } from './frame'
 
 export interface MeshFit {
   name: string
   triangles: number
+  vertices: number
   /** bounding sphere of this mesh alone, in the model's own units */
   radius: number
   centre: [number, number, number]
@@ -37,6 +38,8 @@ export interface ModelFit {
   chosen: string | null
   meshes: MeshFit[]
   triangles: number
+  /** vertices of the meshes that were kept: what the resolution below is measured from */
+  vertices: number
 }
 
 /** A mesh whose bounding sphere is more than this many times the median is not the globe. */
@@ -77,6 +80,7 @@ function collect(object: THREE.Object3D): Measured[] {
       info: {
         name: mesh.name || '(unnamed)',
         triangles: Math.round((index ? index.count : pos.count) / 3),
+        vertices: pos.count,
         radius: sphere.radius,
         centre: triple(sphere.center),
         box: { min: triple(box.min), max: triple(box.max) },
@@ -123,6 +127,7 @@ export function fitModel(object: THREE.Object3D): ModelFit {
     chosen: null,
     meshes,
     triangles,
+    vertices: 0,
   }
   if (!meshes.length) return { ...empty, reason: 'the model has no meshes in it' }
 
@@ -163,7 +168,18 @@ export function fitModel(object: THREE.Object3D): ModelFit {
     chosen: biggest.info.name,
     meshes,
     triangles,
+    vertices: kept.reduce((v, k) => v + k.info.vertices, 0),
   }
+}
+
+/**
+ * How far apart the vertices of the model are on the ground, metres: the side of the square each
+ * vertex would own if they were spread evenly over the sphere. Measured, never assumed - it is
+ * what the sheet prints, and what says how coarse the terrain of a custom point really is.
+ */
+export function sampleSpacingM(vertices: number, radiusM = MOON_RADIUS_M): number {
+  if (!(vertices > 0)) return Number.POSITIVE_INFINITY
+  return Math.sqrt((4 * Math.PI * radiusM * radiusM) / vertices)
 }
 
 /**

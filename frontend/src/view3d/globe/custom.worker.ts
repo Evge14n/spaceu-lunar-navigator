@@ -7,7 +7,8 @@
 // Out: { tile..., mask, source..., timeline? } or { error }
 
 import { localTimeline, type Ephem } from '../../api/local'
-import { bestField, type EquirectGrid, type HeightField } from './heights'
+import { calibrateAgainst, calibrated, IDENTITY_CALIBRATION, usable, type Calibration } from './calibrate'
+import { bestField, loadPolarField, type EquirectGrid, type HeightField } from './heights'
 import { horizonMaskAt, MASK_STEP_DEG } from './mask'
 import { buildTile, tileSizeM } from './tile'
 
@@ -21,6 +22,8 @@ interface Request {
   needSky: boolean
   /** heights read off the globe model, when the globe sheet has them (modelHeights.ts) */
   modelGrid?: EquirectGrid | null
+  /** a calibration measured earlier in this browser (calibrate.ts); saves loading dem240 again */
+  calibration?: Calibration | null
 }
 
 let fields: Promise<HeightField> | null = null
@@ -62,7 +65,7 @@ async function loadEphemeris(dataBase: string): Promise<Ephem | null> {
 }
 
 self.onmessage = async (ev: MessageEvent<Request>) => {
-  const { lat, lon, heightM, n, dataBase, siteBase, needSky, modelGrid } = ev.data
+  const { lat, lon, heightM, n, dataBase, siteBase, needSky, modelGrid, calibration } = ev.data
   const post = (msg: Record<string, unknown>, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(msg, transfer)
   try {
     // the heavy files (dem240 is 6.3 MB) are kept while the worker lives
@@ -71,7 +74,18 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
       fieldKey = key
       fields = bestField(lat, lon, dataBase, siteBase, modelGrid)
     }
-    const field = await fields
+    const raw = await fields
+    // The model is made to be looked at: its relief is exaggerated (about 3x in NASA SVS 14959).
+    // Measure that against LOLA once and rescale, so the ground and the mask are in true metres.
+    let cal: Calibration = calibration && usable(calibration) ? calibration : IDENTITY_CALIBRATION
+    if (raw.id === 'model' && cal.n === 0) {
+      const lola = await loadPolarField(dataBase)
+      if (lola) {
+        const measured = calibrateAgainst(raw, lola)
+        if (usable(measured)) cal = measured
+      }
+    }
+    const field = raw.id === 'model' ? calibrated(raw, cal) : raw
     const sizeM = tileSizeM(field.pixelM)
     const tile = buildTile(field, { latDeg: lat, lonDeg: lon, sizeM, n })
     const mask = horizonMaskAt(field, lat, lon, heightM)
@@ -104,6 +118,7 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
         sourceId: field.id,
         label: field.label,
         pixelM: Number.isFinite(field.pixelM) ? field.pixelM : null,
+        calibration: cal.n ? cal : null,
         timeline,
       },
       [tile.heights.buffer, mask.elevationDeg.buffer],
