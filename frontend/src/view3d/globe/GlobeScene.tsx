@@ -16,6 +16,7 @@ import type { Site, Vec3 } from '../../api'
 import { fileExists } from './heights'
 import { sampleModelHeights } from './modelHeights'
 import type { ModelGrid } from './modelGrid'
+import { cameraDistanceFor, cameraPlanes, fitModel, type ModelFit } from './fit'
 import {
   dirFromLatLon,
   GLOBE_RADIUS,
@@ -33,6 +34,20 @@ const DPR: [number, number] = SMALL ? [1, 1.5] : [1, 2]
 const SEGMENTS: [number, number] = SMALL ? [96, 48] : [192, 96]
 
 const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')
+
+/**
+ * `?debug` anywhere in the address (before the # is the one that survives, because the sheets
+ * rewrite the part after it) turns on the console report about the model.
+ */
+export function debugOn(): boolean {
+  if (typeof window === 'undefined') return false
+  const { search, hash } = window.location
+  return /(^|[?&])debug\b/.test(search) || /[?&]debug\b/.test(hash)
+}
+
+const log = (...args: unknown[]) => {
+  if (debugOn()) console.info('[globe]', ...args)
+}
 /** Where the model may live: the first one that answers wins. */
 export const MODEL_URLS = [`${BASE}moon/moon.glb`, `${BASE}models/moon.glb`]
 const TEXTURE_NAMES = SMALL ? ['moon-1024.webp', 'moon.webp', 'moon.jpg'] : ['moon.webp', 'moon.jpg', 'moon-1024.webp']
@@ -40,7 +55,7 @@ export const TEXTURE_URLS = [...TEXTURE_NAMES.map((n) => `${BASE}moon/${n}`), `$
 
 export type ModelState =
   | { kind: 'loading' }
-  | { kind: 'model'; object: THREE.Object3D; url: string; triangles: number }
+  | { kind: 'model'; object: THREE.Object3D; url: string; fit: ModelFit }
   | { kind: 'sphere'; texture: THREE.Texture | null; reason: string }
 
 async function firstThatExists(urls: string[]): Promise<string | null> {
@@ -48,27 +63,34 @@ async function firstThatExists(urls: string[]): Promise<string | null> {
   return null
 }
 
-/** Make every material of the model react to the Sun, keeping its texture. */
-function relight(object: THREE.Object3D): number {
-  let triangles = 0
+/**
+ * Make every material of the model react to the Sun, keeping its texture, and draw both faces:
+ * a globe exported with flipped normals (or a half-sphere) would otherwise be invisible from
+ * outside, which looks exactly like "the model did not load".
+ */
+function relight(object: THREE.Object3D): void {
   object.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
-    const index = mesh.geometry.getIndex()
-    triangles += (index ? index.count : mesh.geometry.getAttribute('position')?.count ?? 0) / 3
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     const next = mats.map((m) => {
       const old = m as THREE.MeshStandardMaterial & { map?: THREE.Texture | null }
       if ((old as THREE.Material).type === 'MeshStandardMaterial' || (old as THREE.Material).type === 'MeshPhysicalMaterial') {
         old.roughness = 1
         old.metalness = 0
+        old.side = THREE.DoubleSide
         return old
       }
-      return new THREE.MeshStandardMaterial({ map: old.map ?? null, color: old.map ? 0xffffff : 0xcfcbc4, roughness: 1, metalness: 0 })
+      return new THREE.MeshStandardMaterial({
+        map: old.map ?? null,
+        color: old.map ? 0xffffff : 0xcfcbc4,
+        roughness: 1,
+        metalness: 0,
+        side: THREE.DoubleSide,
+      })
     })
     mesh.material = (Array.isArray(mesh.material) ? next : next[0]) as THREE.Material
   })
-  return Math.round(triangles)
 }
 
 /** Load the GLB once per page visit; fall back to a sphere, never crash. */
@@ -104,9 +126,34 @@ function useGlobeModel(): ModelState {
         const gltf = await loader.loadAsync(url)
         draco.dispose()
         if (!live) return
+        const fit = fitModel(gltf.scene)
+        log('loaded', url)
+        log(
+          'nodes:',
+          gltf.scene.children.length,
+          'meshes:',
+          fit.meshes.length,
+          'triangles:',
+          fit.triangles,
+          fit.meshes.map((m) => ({
+            name: m.name,
+            triangles: m.triangles,
+            radius: m.radius,
+            centre: m.centre,
+            box: m.box,
+            dropped: m.dropped,
+          })),
+        )
+        log('bounding sphere radius of the chosen mesh:', fit.radius, '(' + (fit.chosen ?? 'none') + ')', '-> scale', fit.scale)
+        if (!fit.ok) {
+          // an empty export, or a file with nothing but cameras and lights: say so and draw the ball
+          log('nothing to draw:', fit.reason)
+          await sphere(fit.reason ?? 'the model has nothing to draw')
+          return
+        }
         created = gltf.scene
-        const triangles = relight(created)
-        setState({ kind: 'model', object: created, url, triangles })
+        relight(created)
+        setState({ kind: 'model', object: created, url, fit })
       } catch (e) {
         const msg = (e as Error).message || 'the model could not be read'
         await sphere(msg)
@@ -128,23 +175,20 @@ function useGlobeModel(): ModelState {
 /** Scale and orient the model so that it is a unit sphere in the scene frame. */
 function ModelGlobe({
   object,
+  fit,
   frame,
   spin,
   onTap,
   onHeights,
 }: {
   object: THREE.Object3D
+  /** which mesh is the globe, and how much to scale it (fit.ts) */
+  fit: ModelFit
   frame: ModelFrame
   spin: number
   onTap: (e: ThreeEvent<PointerEvent>) => void
   onHeights: (g: ModelGrid | null) => void
 }) {
-  const fit = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(object)
-    const sphere = box.getBoundingSphere(new THREE.Sphere())
-    // the model may be centred anywhere and scaled in metres, kilometres or radii
-    return { scale: sphere.radius > 0 ? GLOBE_RADIUS / sphere.radius : 1, centre: sphere.center.clone() }
-  }, [object])
   const quat = useMemo(() => {
     const m = modelMatrix(frame, spin)
     const mat = new THREE.Matrix4().set(m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1)
@@ -171,7 +215,7 @@ function SphereGlobe({ texture, onTap }: { texture: THREE.Texture | null; onTap:
     <mesh onPointerDown={onTap} onPointerUp={onTap}>
       {/* the texture of an equirectangular map starts at 180 W: turn it so u = 0.5 is 0 E */}
       <sphereGeometry args={[GLOBE_RADIUS, SEGMENTS[0], SEGMENTS[1], -Math.PI / 2]} />
-      <meshStandardMaterial map={texture ?? undefined} color={texture ? '#ffffff' : '#bfbbb4'} roughness={1} metalness={0} />
+      <meshStandardMaterial map={texture ?? undefined} color={texture ? '#ffffff' : '#bfbbb4'} roughness={1} metalness={0} side={THREE.DoubleSide} />
     </mesh>
   )
 }
@@ -217,8 +261,8 @@ function Pin({ lat, lon }: { lat: number; lon: number }) {
 }
 
 /** Orbit with the mouse or a finger; Ctrl + wheel zooms, as on the other sheets. */
-function Rig({ focus }: { focus: { dir: [number, number, number]; distance: number; key: number } | null }) {
-  const { camera, gl } = useThree()
+function Rig({ focus, fitKey }: { focus: { dir: [number, number, number]; distance: number; key: number } | null; fitKey: string }) {
+  const { camera, gl, size } = useThree()
   const controls = useRef<OrbitControls | null>(null)
   const target = useRef<THREE.Vector3 | null>(null)
   useEffect(() => {
@@ -227,8 +271,8 @@ function Rig({ focus }: { focus: { dir: [number, number, number]; distance: numb
     c.enableDamping = true
     c.dampingFactor = 0.08
     c.rotateSpeed = 0.45
-    c.minDistance = 1.25
-    c.maxDistance = 8
+    c.minDistance = GLOBE_RADIUS * 1.08
+    c.maxDistance = GLOBE_RADIUS * 10
     // the page scrolls on a plain wheel; Ctrl + wheel zooms, as on sheet 04. Pinch always zooms.
     c.enableZoom = true
     c.zoomSpeed = 0.8
@@ -244,6 +288,29 @@ function Rig({ focus }: { focus: { dir: [number, number, number]; distance: numb
       controls.current = null
     }
   }, [camera, gl])
+  // Put the whole globe in the frame, whatever the model turned out to be and whatever shape the
+  // window is (on a phone held upright the width is the tight side), and set the planes from its
+  // radius rather than from numbers guessed for one screen.
+  const aspect = size.width / Math.max(1, size.height)
+  const fitted = useRef('')
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera
+    const d = cameraDistanceFor(GLOBE_RADIUS, cam.fov, aspect)
+    const { near, far } = cameraPlanes(GLOBE_RADIUS, d)
+    cam.near = near
+    cam.far = far
+    const first = fitted.current !== fitKey
+    fitted.current = fitKey
+    if (camera.position.length() < 1e-6) camera.position.set(0.32, 0.18, 1)
+    // a new model starts at the fitting distance; later, when the window changes shape, only pull
+    // back if the globe would no longer fit, so a zoom the user chose is not undone
+    if (first || camera.position.length() < d) camera.position.setLength(d)
+    cam.updateProjectionMatrix()
+    controls.current?.update()
+    log('camera fitted:', { distance: camera.position.length(), near, far, aspect: +aspect.toFixed(3), fov: cam.fov })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey, aspect, camera])
+
   const key = focus?.key ?? 0
   useEffect(() => {
     if (!focus || !key) return
@@ -264,7 +331,7 @@ function Rig({ focus }: { focus: { dir: [number, number, number]; distance: numb
 
 export const summarize = (m: ModelState): ModelSummary =>
   m.kind === 'model'
-    ? { kind: 'model', url: m.url, triangles: m.triangles }
+    ? { kind: 'model', url: m.url, triangles: m.fit.triangles }
     : m.kind === 'sphere'
       ? { kind: 'sphere', reason: m.reason, textured: !!m.texture }
       : { kind: 'loading' }
@@ -317,11 +384,12 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onCreated={({ scene }) => (scene.background = new THREE.Color('#05060a'))}
       >
-        {/* the Moon has no air: almost nothing lights the night side */}
-        <ambientLight intensity={0.07} color="#9fb0c8" />
+        {/* the Moon has no air, so the night side is dark - but not a black hole in the page */}
+        <ambientLight intensity={0.16} color="#9fb0c8" />
+        <hemisphereLight args={['#8ea0b8', '#1b1f26', 0.12]} />
         <directionalLight position={[sun[0] * 12, sun[1] * 12, sun[2] * 12]} intensity={3.0} />
         {model.kind === 'model' ? (
-          <ModelGlobe object={model.object} frame={frame} spin={spin} onTap={onTap} onHeights={onHeights} />
+          <ModelGlobe object={model.object} fit={model.fit} frame={frame} spin={spin} onTap={onTap} onHeights={onHeights} />
         ) : model.kind === 'sphere' ? (
           <SphereGlobe texture={model.texture} onTap={onTap} />
         ) : null}
@@ -341,7 +409,7 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
             <Marker key={m.label} at={pointFromLatLon(m.lat, m.lon, 0, 0.004)} color={['#6ee7a8', '#ff8fd0', '#ffe066'][i]} radius={0.02} />
           ))}
         {pick && <Pin lat={pick.lat} lon={pick.lon} />}
-        <Rig focus={focus} />
+        <Rig focus={focus} fitKey={model.kind === 'model' ? `${model.url}|${model.fit.radius}` : model.kind} />
       </Canvas>
     </div>
   )
