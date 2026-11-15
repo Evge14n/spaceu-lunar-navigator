@@ -142,11 +142,11 @@ export function localTimeline(eph: Ephem, latDeg: number, lonDeg: number, mask: 
   const pos = sitePos(latDeg, lonDeg, groundM + heightM)
   const n = eph.times.length
   const T: Timeline = {
-    site: { id: `custom:${latDeg},${lonDeg}`, lat: latDeg, lon: lonDeg, terrain: true },
+    site: { id: `custom:${latDeg},${lonDeg}`, lat: latDeg, lon: lonDeg, elevation_m: groundM, terrain: true },
     height_m: heightM,
     times: eph.times.map((t) => new Date(t).toISOString().replace('.000Z', 'Z')),
     sun: { az: [], el: [], horizon_el: [], visible_fraction: [] },
-    earth: { az: [], el: [], horizon_el: [], visible: [], distance_km: [] },
+    earth: { az: [], el: [], horizon_el: [], visible: [], visible_fraction: [], distance_km: [] },
     source: 'Computed in your browser: NAIF SPICE vectors (hourly) and a 240 m LOLA terrain grid',
   }
   for (let i = 0; i < n; i++) {
@@ -164,7 +164,9 @@ export function localTimeline(eph: Ephem, latDeg: number, lonDeg: number, mask: 
     T.earth.az.push(+eaz.toFixed(3))
     T.earth.el.push(+eel.toFixed(3))
     T.earth.horizon_el.push(+eh.toFixed(3))
-    T.earth.visible.push(eel + earthRadiusDeg(dist) > eh)
+    const ef = discFraction(eel, eh, earthRadiusDeg(dist))
+    T.earth.visible.push(ef > 0)
+    T.earth.visible_fraction?.push(+ef.toFixed(3))
     T.earth.distance_km.push(Math.round(dist))
   }
   return T

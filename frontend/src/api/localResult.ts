@@ -35,7 +35,7 @@ export function toLocalResult(id: string, lat: number, lon: number, heightM: num
   const n = times.length
   const list = (a: Arr) => Array.from({ length: n }, (_, i) => r3(a[i]))
   const timeline: Timeline = {
-    site: { id, lat, lon, terrain: true },
+    site: { id, lat, lon, elevation_m: r.ground_m, terrain: true },
     height_m: heightM,
     times: times.map((t) => new Date(t).toISOString().replace('.000Z', 'Z')),
     sun: {
@@ -50,6 +50,7 @@ export function toLocalResult(id: string, lat: number, lon: number, heightM: num
       el: list(r.earth.el),
       horizon_el: list(r.earth.horizon_el),
       visible: Array.from({ length: n }, (_, i) => r.earth.visible_fraction[i] > 0),
+      visible_fraction: Array.from({ length: n }, (_, i) => r3(r.earth.visible_fraction[i])),
       distance_km: Array.from({ length: n }, (_, i) => Math.round(r.earth.distance_km[i])),
     },
     source: 'Computed in your browser: NAIF SPICE vectors every hour and the LOLA 240 m elevation model (docs/BROWSER_COMPUTE.md)',

@@ -23,7 +23,7 @@ import {
 import { clampPeriod } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateUtc, dayMon, deg, hours, latLon, pct, siteNo } from '../format'
+import { dateUtc, dayMon, deg, hours, latLon, pct, siteNo, terrainMark } from '../format'
 import { useAppState } from '../state'
 
 const R_KM = 1737.4
@@ -178,8 +178,10 @@ export default function MapPage() {
 
   const lat = Number(pick.lat)
   const lon = Number(pick.lon)
-  const validPick = pick.lat.trim() !== '' && pick.lon.trim() !== '' && Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= -80 && lon >= -180 && lon <= 360
-  const pickXY = validPick && picked ? project(lat, lon) : null
+  const validPick = pick.lat.trim() !== '' && pick.lon.trim() !== '' && Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 360
+  // this sheet is a map of the south pole; a point further north is computed but cannot be drawn
+  const onThisMap = validPick && lat <= -80
+  const pickXY = onThisMap && picked ? project(lat, lon) : null
 
   const onPlateClick = (v: View) => (ev: React.MouseEvent<HTMLDivElement>) => {
     const r = ev.currentTarget.getBoundingClientRect()
@@ -324,7 +326,12 @@ export default function MapPage() {
                   Compute
                 </button>
               </div>
-              {!validPick && <p className="err">Latitude between −90 and −80, longitude between −180 and 360.</p>}
+              {!validPick && <p className="err">Latitude between −90 and 90, longitude between −180 and 360.</p>}
+              {validPick && !onThisMap && (
+                <p className="small muted">
+                  This point is outside the map of the south pole, so it is not drawn here — the numbers below, the timeline and the 3D view all work for it.
+                </p>
+              )}
               {custom && customTl.loading && <div className="skeleton line-skeleton" aria-busy="true" />}
               {custom && customTl.error && (
                 <Notice tone="error" title="Could not compute this point">
@@ -335,15 +342,16 @@ export default function MapPage() {
                 const ms = timesMs(customTl.data)
                 const [f, e] = clampPeriod(from, to, ms)
                 const cs = summarize(customTl.data, { id: siteId!, name: 'Your point' }, f, e)
+                const mark = terrainMark(customTl.data)
                 return (
                   <div aria-live="polite">
                     <div className="cells" style={{ border: '1px solid var(--ink)' }}>
                       <div className="cell">
-                        <span className="label">Sunlit</span>
+                        <span className="label">Sunlit {mark && <em className="coarse-mark">{mark}</em>}</span>
                         <span className="num mid">{pct(cs.sun.lit_percent)}</span>
                       </div>
                       <div className="cell">
-                        <span className="label">Earth in view</span>
+                        <span className="label">Earth in view {mark && <em className="coarse-mark">{mark}</em>}</span>
                         <span className="num mid">{pct(cs.earth.visible_percent)}</span>
                       </div>
                     </div>
