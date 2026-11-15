@@ -12,10 +12,20 @@
 
 import type { HeightField } from './heights'
 
+export type CalibrationMethod = 'none' | 'line' | 'amplitude'
+
 export interface Calibration {
   /** model height x metres becomes scale * x + offset metres */
   scale: number
   offset: number
+  /**
+   * 'line'      the two sources describe the same shape, so a least squares line is fitted;
+   * 'amplitude' they do not line up well enough for that (a model of kilometre samples against a
+   *             240 m map rarely does), but how tall the relief is can still be measured: the
+   *             ratio of the two spreads. The offset is then left at zero, because the model's
+   *             own median radius already stands for the 1737.4 km sphere.
+   */
+  method: CalibrationMethod
   /** correlation of the two sources over the sample: how much the line is worth */
   r: number
   /** metres left over after the fit (root mean square) */
@@ -26,7 +36,11 @@ export interface Calibration {
   against: string
 }
 
-export const IDENTITY_CALIBRATION: Calibration = { scale: 1, offset: 0, r: 0, rmsM: 0, n: 0, against: 'not calibrated' }
+export const IDENTITY_CALIBRATION: Calibration = { scale: 1, offset: 0, method: 'none', r: 0, rmsM: 0, n: 0, against: 'not calibrated' }
+
+/** Correlation above this means the two really describe the same shape, so a line can be fitted. */
+export const SHAPE_R = 0.5
+const AGAINST = 'LOLA 240 m (data/dem240.bin)'
 
 /** Least squares through (x, y) pairs. */
 export function fitLine(pairs: [number, number][]): Calibration {
@@ -49,12 +63,16 @@ export function fitLine(pairs: [number, number][]): Calibration {
     sxy += (x - mx) * (y - my)
   }
   if (sxx <= 0 || syy <= 0) return { ...IDENTITY_CALIBRATION, n }
-  const scale = sxy / sxx
-  const offset = my - scale * mx
   const r = sxy / Math.sqrt(sxx * syy)
+  // Shapes that match: a least squares line. Shapes that only roughly match: the amplitude alone.
+  // Fitting a line through weakly correlated pairs underestimates the slope (the model is the
+  // noisy side), and it is the amplitude - the exaggeration - that has to be undone.
+  const line = r >= SHAPE_R
+  const scale = line ? sxy / sxx : Math.sqrt(syy / sxx)
+  const offset = line ? my - scale * mx : 0
   let sse = 0
   for (const [x, y] of pairs) sse += (y - (scale * x + offset)) ** 2
-  return { scale, offset, r, rmsM: Math.sqrt(sse / n), n, against: 'LOLA 240 m (data/dem240.bin)' }
+  return { scale, offset, method: line ? 'line' : 'amplitude', r, rmsM: Math.sqrt(sse / n), n, against: AGAINST }
 }
 
 /**
@@ -76,18 +94,24 @@ export function calibrateAgainst(model: HeightField, truth: HeightField, latLimi
   return fitLine(pairs)
 }
 
-/** Is this fit worth applying? A weak correlation means the two do not describe the same place. */
+/**
+ * Is this fit worth applying? A line needs the shapes to agree; an amplitude match only needs
+ * enough pairs, because the spread of a field is a real measurement even when the two do not line
+ * up point by point. Either way the factor has to be sane.
+ */
 export function usable(c: Calibration): boolean {
-  return c.n >= 200 && c.r > 0.5 && c.scale > 0.05 && c.scale < 20
+  if (!(c.n >= 200) || !(c.scale > 0.05) || !(c.scale < 20)) return false
+  return c.method === 'line' ? c.r >= SHAPE_R : c.method === 'amplitude'
 }
 
 /** A height field with the calibration applied, so everything downstream sees true metres. */
 export function calibrated(field: HeightField, c: Calibration): HeightField {
   if (c.scale === 1 && c.offset === 0) return field
   const factor = Math.round(c.scale * 100) / 100
+  const how = c.method === 'line' ? 'fitted to LOLA' : 'amplitude matched to LOLA'
   return {
     ...field,
-    label: `${field.label}, relief rescaled to LOLA (x ${factor})`,
+    label: `${field.label}, relief rescaled (x ${factor}, ${how})`,
     heightAt: (lat, lon) => {
       const h = field.heightAt(lat, lon)
       return Number.isFinite(h) ? c.scale * h + c.offset : h
