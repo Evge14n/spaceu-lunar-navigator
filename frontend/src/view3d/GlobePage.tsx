@@ -6,7 +6,7 @@
 // globe/sitePicker.ts, and what the model has to satisfy is in GLOBE.md next to this file.
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { meToScene, toLatLon, useSites, useSunDirection, type Site } from '../api'
+import { meToScene, toLatLon, useSites, useSunDirection, useYearSummaries, type Site } from '../api'
 import { TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
@@ -57,6 +57,9 @@ function saveOrientation(v: { frame: ModelFrame; spin: number }) {
   }
 }
 
+/** The model-orientation check is a calibration tool: shown only with ?debug in the address. */
+const isDebug = () => /[?&]debug(?:[=&]|$)/.test(window.location.search + window.location.hash.replace(/^[^?]*/, '&'))
+
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'id', label: 'By number' },
   { key: 'lit', label: 'By sunlight' },
@@ -66,8 +69,15 @@ const SORTS: { key: SortKey; label: string }[] = [
 export default function GlobePage() {
   const { t, from, to, setTime, siteId, setSite, navigate, href } = useAppState()
   const sites = useSites()
+  const year = useYearSummaries()
+  // the same sunlit share of the year as the map shows (89.9 %), not the NASA 18.6-year average
+  const yearLit = useMemo(() => new Map((year.data ?? []).map((y) => [y.site.id, y.sun.lit_percent])), [year.data])
+  const lit = useCallback((s: Site) => {
+    const v = yearLit.get(s.id)
+    return typeof v === 'number' && Number.isFinite(v) ? v : null
+  }, [yearLit])
   const [sortKey, setSortKey] = useState<SortKey>('id')
-  const all = useMemo(() => sortSites(sites.data ?? [], sortKey), [sites.data, sortKey])
+  const all = useMemo(() => sortSites(sites.data ?? [], sortKey, lit), [sites.data, sortKey, lit])
   const placed = useMemo(() => all.filter(hasPosition), [all])
   const numbering = sites.data ?? []
 
@@ -154,8 +164,6 @@ export default function GlobePage() {
           ? 'The file loaded, but it is empty — it has no meshes in it, only a scene. In Blender, select the Moon object and export with File ▸ Export ▸ glTF 2.0 (.glb), with “Include ▸ Selected Objects” either off or the Moon actually selected. A plain sphere stands in meanwhile.'
           : `The model could not be used (${model.reason}); a plain sphere stands in for it.`
       : null
-
-  const lit = (s: Site) => (typeof s.nasa_avg_illumination_percent === 'number' ? s.nasa_avg_illumination_percent : null)
 
   return (
     <div className="page globe">
@@ -262,7 +270,7 @@ export default function GlobePage() {
               </p>
               <div className="cells">
                 <div className="cell">
-                  <span className="label">NASA average sunlight</span>
+                  <span className="label">Sunlit share of the year</span>
                   <span className="num mid">{lit(selected) === null ? 'n/a' : pct(lit(selected))}</span>
                   {lit(selected) !== null && (
                     <span aria-hidden="true" style={{ display: 'block', height: 6, background: 'var(--line)' }}>
@@ -335,7 +343,7 @@ export default function GlobePage() {
                               {placedSite ? formatLatLon(s.lat, s.lon, 2) : 'no position'}
                             </span>
                           </span>
-                          <span className="pc">{lit(s) === null ? '—' : `${lit(s)!.toFixed(0)}%`}</span>
+                          <span className="pc">{lit(s) === null ? '—' : `${lit(s)!.toFixed(1)} %`}</span>
                         </button>
                       </li>
                     )
@@ -343,7 +351,7 @@ export default function GlobePage() {
                 </ul>
               )}
               <p className="label" style={{ marginTop: 10 }}>
-                Arrow keys move the choice, Enter opens the 3D view. The percentage is the NASA 18.6-year average sunlight at the point.
+                Arrow keys move the choice, Enter opens the 3D view. The percentage is the sunlit share of our year from 14 NOV 2026, as on the map.
               </p>
             </div>
           </section>
@@ -352,6 +360,7 @@ export default function GlobePage() {
             <TimeSlider from={from} to={to} value={t} onChange={setTime} />
           </div>
 
+          {isDebug() && (
           <section className="panel" aria-label="Model orientation" style={{ marginTop: 14 }}>
             <div className="panel-head">
               <h2>Is the model oriented correctly?</h2>
@@ -395,6 +404,7 @@ export default function GlobePage() {
               </p>
             </div>
           </section>
+          )}
         </>
       )}
     </div>

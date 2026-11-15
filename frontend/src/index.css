@@ -166,7 +166,15 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .chip .no { font-family: var(--f-mono); font-size: 12px; font-weight: 600; }
 .chip.on { background: var(--ink); color: var(--white); }
 .chip input { accent-color: var(--ink); margin: 0; }
-.chip:has(input:disabled) { color: var(--ink-3); cursor: not-allowed; }
+.chip:has(input:disabled), .chip.off { color: var(--ink-3); border-color: var(--line); background: transparent; cursor: not-allowed; }
+.chip.off input { opacity: 0.35; }
+.chip.off .no { opacity: 0.6; }
+.chips-hint { margin-left: 12px; font-size: 13px; color: var(--ink-2, var(--ink)); white-space: nowrap; }
+.chips-hint::before { content: '— '; }
+.chips-hint.nudge { background: var(--sun); color: var(--ink); padding: 2px 6px; animation: chips-nudge 0.5s ease-in-out 2; }
+@keyframes chips-nudge { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .chips-hint.nudge { animation: none; } }
+@media (max-width: 520px) { .chips-hint { display: block; margin: 4px 0 0; white-space: normal; } .chips-hint::before { content: none; } }
 .chip:has(input:focus-visible) { outline: 3px solid var(--earth); outline-offset: 2px; position: relative; z-index: 1; }
 
 /* ---------- Map (01) ---------- */
@@ -438,8 +446,8 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
   }
   .tabbar a {
     min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    font-family: var(--f-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0; text-decoration: none; color: var(--ink);
-    min-width: 0;
+    font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: -0.04em; text-decoration: none; color: var(--ink);
+    min-width: 0; white-space: nowrap; padding: 0 1px;
   }
   .tabbar a + a { border-left: 1px solid var(--line); }
   .tabbar a b { font-size: 13px; font-weight: 500; }
@@ -508,5 +516,5 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 .coarse-mark { font-style: normal; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--line); padding: 0 4px; margin-left: 6px; white-space: nowrap; }
 
 @media (max-width: 340px) {
-  .tabbar a { font-size: 8.5px; }
+  .tabbar a { font-size: 9.5px; }
 }
