@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { formatHours, periodPresets, summarize, timesMs, useHeights, useSites, useTimelines, type Site, type Summary } from '../api'
+import { formatHours, isCustom, periodPresets, summarize, timesMs, useHeights, useSites, useTimelines, type Summary } from '../api'
 import { clampPeriod, PeriodMovedNote, PeriodPicker } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateUtc, siteNo } from '../format'
+import { dateUtc, latLon, siteNo, terrainMark } from '../format'
 import { useAppState } from '../state'
 
 interface Metric {
@@ -16,6 +16,12 @@ interface Metric {
 }
 
 const pct = (v: number | null) => (v === null ? 'n/a' : `${v.toFixed(1)} %`)
+
+/** "custom:-12.5,143" -> [-12.5, 143], for the label of a point of your own. */
+const parseLatLon = (id: string): [number, number] | null => {
+  const [a, b] = id.slice('custom:'.length).split(',').map(Number)
+  return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null
+}
 
 const METRICS: Metric[] = [
   { key: 'lit', label: 'Sunlit share of the period', hint: 'Any part of the Sun above the terrain', get: (s) => s.sun.lit_percent, fmt: pct, better: 'high' },
@@ -46,10 +52,12 @@ function best(values: (number | null)[], better: Metric['better']): number | nul
 }
 
 export default function ComparePage() {
-  const { compareIds, setCompare, from, to, setPeriod } = useAppState()
+  const { compareIds, setCompare, from, to, setPeriod, siteId } = useAppState()
   const sites = useSites()
   const list = sites.data ?? []
-  const chosen = compareIds.filter((id) => list.some((s) => s.id === id))
+  // a point of your own can be compared with the prepared sites: the one that is picked
+  const custom = siteId && isCustom(siteId) ? siteId : null
+  const chosen = compareIds.filter((id) => isCustom(id) || list.some((s) => s.id === id))
   const tls = useTimelines(chosen)
   const heights = useHeights()
 
@@ -58,8 +66,8 @@ export default function ComparePage() {
     const ms = timesMs(tls.data[0])
     const [f, e, moved] = clampPeriod(from, to, ms)
     const sums = tls.data.map((tl, i) => {
-      const s = list.find((x) => x.id === chosen[i]) as Site
-      return summarize(tl, { id: s.id, name: s.name }, f, e)
+      const s = list.find((x) => x.id === chosen[i])
+      return summarize(tl, { id: chosen[i], name: s ? s.name : 'Your point' }, f, e)
     })
     return { f, e, ms, sums, moved, presets: periodPresets(tls.data) }
   }, [tls.data, chosen, list, from, to])
@@ -82,6 +90,18 @@ export default function ComparePage() {
       <div className="toolbar">
         <fieldset className="chips">
           <legend>Sites, {chosen.length} of 4 chosen</legend>
+          {custom && (
+            <label key={custom} className={`chip${chosen.includes(custom) ? ' on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={chosen.includes(custom)}
+                disabled={!chosen.includes(custom) && chosen.length >= 4}
+                onChange={() => toggle(custom)}
+              />
+              <span className="no">--</span>
+              Your point {latLon(...(parseLatLon(custom) ?? [0, 0]))}
+            </label>
+          )}
           {list.map((s) => {
             const on = chosen.includes(s.id)
             return (
@@ -118,11 +138,15 @@ export default function ComparePage() {
               <thead>
                 <tr>
                   <th scope="col">Metric</th>
-                  {result.sums.map((s) => (
-                    <th scope="col" key={s.site.id}>
-                      {siteNo(list, s.site.id)} {s.site.name}
-                    </th>
-                  ))}
+                  {result.sums.map((s, i) => {
+                    const mark = terrainMark(tls.data?.[i])
+                    return (
+                      <th scope="col" key={s.site.id}>
+                        {isCustom(s.site.id) ? `${s.site.name} ${latLon(...(parseLatLon(s.site.id) ?? [0, 0]))}` : `${siteNo(list, s.site.id)} ${s.site.name}`}
+                        {mark && <em className="coarse-mark">{mark}</em>}
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>

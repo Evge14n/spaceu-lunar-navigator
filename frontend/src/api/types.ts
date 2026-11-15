@@ -18,7 +18,7 @@ export interface Site {
 }
 
 export interface Timeline {
-  site: { id: string; lat: number; lon: number; terrain: boolean }
+  site: { id: string; lat: number; lon: number; elevation_m?: number; terrain: boolean }
   height_m: number
   times: string[]
   sun: { az: number[]; el: number[]; horizon_el: number[]; visible_fraction: number[] }
@@ -27,6 +27,8 @@ export interface Timeline {
     el: number[]
     horizon_el: number[]
     visible: boolean[]
+    /** share of the disc above the terrain, 0..1 (docs/API.md) */
+    visible_fraction?: number[]
     distance_km: (number | null)[]
   }
   source: string

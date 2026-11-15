@@ -88,6 +88,9 @@ async function staticUrl(path: string): Promise<string> {
   return `${BASE}${src === 'real' ? 'data' : 'mock'}/${path}`
 }
 
+/** data/dem240.json: the polar grid ends here, and the globe pipeline takes over (docs/BROWSER_COMPUTE.md). */
+export const POLAR_GRID_LAT_LIMIT = -83
+
 export function isCustom(siteId: string): boolean {
   return siteId.startsWith('custom:')
 }
@@ -111,6 +114,25 @@ export async function canComputeLocally(): Promise<boolean> {
   if ((await dataSource()) !== 'real') return false
   const f = await dataFiles()
   return f.has('ephem/year.json') && f.has('dem240.json')
+}
+
+/** Latitude of a "custom:lat,lon" id, or null. */
+function customLat(siteId: string): number | null {
+  const lat = Number(siteId.slice('custom:'.length).split(',')[0])
+  return Number.isFinite(lat) ? lat : null
+}
+
+/**
+ * Points the 240 m polar grid does not reach (north of 83 S) are computed by the globe pipeline
+ * in src/view3d/globe: the same Web Worker the 3D sheet uses, loaded only when a sheet actually
+ * asks for such a point, so nothing of it lands in the first screen.
+ */
+function computeOnGlobe(siteId: string): Promise<{ timeline: Timeline; horizon: Horizon }> {
+  return import('../view3d/globe/useCustomSite').then(async (m) => {
+    const site = await m.computeCustomSite(siteId, { needSky: true })
+    if (!site.timeline) throw new DataError('this point could not be computed in your browser', siteId)
+    return { timeline: site.timeline, horizon: site.horizon }
+  })
 }
 
 const localCache = new Map<string, Promise<{ timeline: Timeline; horizon: Horizon }>>()
@@ -177,6 +199,8 @@ export function computeLightNow(t: number, thin = 2): Promise<LightFrame> {
 
 export async function getTimeline(siteId: string, start?: string, end?: string): Promise<Timeline> {
   if (isCustom(siteId)) {
+    const lat = customLat(siteId)
+    if (lat !== null && lat > POLAR_GRID_LAT_LIMIT) return (await computeOnGlobe(siteId)).timeline
     if (await canComputeLocally()) return (await computeLocal(siteId)).timeline
     if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     const q = new URLSearchParams({ site: siteId, step: '60', height_m: '2' })
@@ -194,6 +218,8 @@ export async function getHorizon(siteId: string, heightM = 2): Promise<Horizon> 
     return getJson<Horizon>(await staticUrl(`horizon/${siteId}_h${heightM}.json`))
   }
   if (isCustom(siteId)) {
+    const lat = customLat(siteId)
+    if (lat !== null && lat > POLAR_GRID_LAT_LIMIT) return (await computeOnGlobe(siteId)).horizon
     if (await canComputeLocally()) return (await computeLocal(siteId)).horizon
     if (!API_URL) throw new DataError('Your own points need the ephemeris files, which are not published yet', '')
     return getJson<Horizon>(`${API_URL}/api/horizon?site=${encodeURIComponent(siteId)}&height_m=2`)

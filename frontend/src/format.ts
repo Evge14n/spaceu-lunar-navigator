@@ -1,6 +1,6 @@
 // One place for number and unit formats, so every screen reads the same: 89.9 %, 1.45°, 5 d 17 h, 14 NOV 2026.
 
-import type { Site } from './api'
+import type { Site, Timeline } from './api'
 export { formatHours as hours } from './api'
 
 export const pct = (v: number | null | undefined, digits = 1) =>
@@ -34,4 +34,18 @@ export const siteTitle = (sites: Site[] | null | undefined, id: string | null) =
   }
   const s = sites?.find((x) => x.id === id)
   return `Site ${siteNo(sites, id)} ${s?.name ?? ''}`
+}
+
+/**
+ * What to put next to a number that depends on the terrain (lit %, longest dark period, Earth
+ * windows) when that terrain is not the 5 m LOLA model of a listed site. Returns null when it is.
+ * Sun and Earth elevations themselves never need this: they come from the ephemeris.
+ */
+export const terrainMark = (tl: Timeline | null | undefined): string | null => {
+  if (!tl) return null
+  if (tl.site.terrain === false) return 'smooth sphere'
+  const source = tl.source ?? ''
+  if (/globe model|global model/i.test(source)) return 'coarse terrain'
+  if (/240 m/.test(source)) return 'coarse terrain, 240 m'
+  return null
 }

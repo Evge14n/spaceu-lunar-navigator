@@ -28,7 +28,7 @@ import {
 import { clampPeriod, HeightSwitch, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteTitle } from '../format'
+import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteTitle, terrainMark } from '../format'
 import { useAppState } from '../state'
 
 /** One tick per day (or every few days for long periods), at 00:00 UTC. */
@@ -148,6 +148,8 @@ export default function TimelinePage() {
   const sunTr = nextTransition(d, 'sun', tt, view.ms)
   const earthTr = nextTransition(d, 'earth', tt, view.ms)
   const sum = view.sum
+  // lit %, longest darkness and the Earth windows lean on the terrain; the elevations do not
+  const mark = terrainMark(d)
 
   return (
     <div className="page timeline">
@@ -176,7 +178,9 @@ export default function TimelinePage() {
           </p>
         </div>
         <div>
-          <span className="label">Whole period</span>
+          <span className="label">
+            Whole period {mark && <em className="coarse-mark">{mark}</em>}
+          </span>
           <span className="num mid">
             {pct(sum.sun.lit_percent)} sunlit / {pct(sum.earth.visible_percent)} Earth
           </span>
