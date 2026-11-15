@@ -19,10 +19,10 @@
     <script>
       // The map is the landing sheet: start fetching its picture before the app runs.
       if (location.hash === '' || location.hash.indexOf('#/map') === 0) {
-        var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = './layers/illumination-1024.webp';
-        l.media = '(max-width: 700px)'; document.head.appendChild(l);
-        var m = document.createElement('link'); m.rel = 'preload'; m.as = 'image'; m.href = './layers/illumination.webp';
-        m.media = '(min-width: 701px)'; document.head.appendChild(m);
+        // the same candidates and sizes as the <img> on the map, so the browser preloads the file it will use
+        var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = './layers/illumination.webp';
+        l.setAttribute('imagesrcset', './layers/illumination-1024.webp 1024w, ./layers/illumination.webp 1772w');
+        l.setAttribute('imagesizes', '(max-width: 700px) 100vw, 840px'); document.head.appendChild(l);
       }
     </script>
   </head>
