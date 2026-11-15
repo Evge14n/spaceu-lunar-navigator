@@ -28,6 +28,7 @@ import { sampleSpacingM } from './fit'
 import { GLOBE_MODEL_FRAME, GLOBE_MODEL_SPIN_DEG, modelMatrix, type ModelFrame } from './frame'
 import { buildLocalGround, type LocalGround } from './localGround'
 import { loadMoonModel, type MoonModel } from './modelSource'
+import { debugOn } from './GlobeScene'
 
 const SMALL = typeof window !== 'undefined' && window.innerWidth < 700
 const DPR: [number, number] = SMALL ? [1, 1.5] : [1, 1.75]
@@ -66,7 +67,20 @@ export function useLocalGround(latDeg: number, lonDeg: number, calibration: Cali
         return
       }
       try {
+        const t0 = performance.now()
         built = buildLocalGround(loaded.model, { latDeg, lonDeg, rotation: modelMatrix(frame, spin), calibration: cal, capDeg: CAP_DEG, eyeM: EYE_M })
+        if (debugOn())
+          console.info('[globe] ground at', latDeg, lonDeg, {
+            spacing_km: +(sampleSpacingM(loaded.model.vertices) / 1000).toFixed(2),
+            vertices: loaded.model.vertices,
+            triangles_kept: built.triangles,
+            kept_fraction: +built.keptFraction.toFixed(3),
+            cap_deg: CAP_DEG,
+            ground_m: Math.round(built.groundM),
+            model_base_radius: built.baseRadius,
+            calibration: cal,
+            ms: Math.round(performance.now() - t0),
+          })
         if (!live) {
           built.geometry.dispose()
           return
