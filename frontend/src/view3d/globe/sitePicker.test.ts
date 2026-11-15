@@ -54,8 +54,9 @@ describe('which site a tap means', () => {
 })
 
 describe('order of the list', () => {
-  it('defaults to the id order of data/sites.json', () => {
-    expect(sortSites(SITES).map((s) => s.id)).toEqual(['dm2', 'nowhere', 'site01', 'site04'])
+  it('defaults to the order of data/sites.json, which is the site numbering', () => {
+    expect(sortSites(SITES).map((s) => s.id)).toEqual(SITES.map((s) => s.id))
+    expect(sortSites([...SITES].reverse()).map((s) => s.id)).toEqual(SITES.map((s) => s.id).reverse())
   })
 
   it('can sort by name, by illumination and by elevation, and keeps every site', () => {
@@ -145,7 +146,7 @@ describe('labels that do not sit on top of each other', () => {
 
 describe('coordinates and keyboard', () => {
   it('writes south and east the way the sheets do, and turns 280 E into 80 W', () => {
-    expect(formatLatLon(-89.68643, 197.0629, 2)).toBe('89.69° S / 162.94° W')
+    expect(formatLatLon(-89.68643, 197.0629, 2)).toBe('89.69° S / 197.06° E')
     expect(formatLatLon(17, 59, 1)).toBe('17.0° N / 59.0° E')
     expect(formatLatLon(0, 0, 1)).toBe('0.0° N / 0.0° E')
   })

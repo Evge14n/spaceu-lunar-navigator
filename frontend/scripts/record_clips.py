@@ -11,7 +11,7 @@ Needs Python Playwright (Chromium) and ffmpeg on PATH. Published copies: fronten
 import math, os, shutil, subprocess, sys, time
 from playwright.sync_api import sync_playwright
 
-BASE = "https://evge14n.github.io/spaceu-lunar-navigator/"
+BASE = os.environ.get("CLIPS_BASE", "https://evge14n.github.io/spaceu-lunar-navigator/")
 FPS = 30
 OUT = sys.argv[1]
 WANT = sys.argv[2:] or ["map", "timeline", "compare", "shadows", "accuracy"]
@@ -184,16 +184,18 @@ def clip_timeline(page, r):
 
 
 def clip_compare(page, r):
-    page.goto(BASE + "#/compare", wait_until="networkidle")
+    # starts at 4 of 4 (01-04): the other chips are dimmed and the hint says to remove one first
+    page.goto(BASE + "#/compare?cmp=site01,site04,site06,site07", wait_until="networkidle")
     settle(page, 1200)
     r.cursor(900, 600)
-    r.hold(0.5)
-    for name in ["Peak near Shackleton", "Malapert massif"]:  # 01 and 03 are pre-selected: 4 of 4
-        lab = page.locator("label").filter(has_text=name).first
+    r.hold(0.6)
+    for name in ["Peak near Shackleton", "Malapert massif"]:  # remove 04, then add 07: both clicks visibly change the table
+        lab = page.locator("label.chip").filter(has_text=name).first
         x, y = r.center(lab)
         r.click(x - 30, y, after=lambda: settle(page, 500), sec=0.45)
-        r.hold(0.2)
-    r.hold(0.6)
+        r.hold(0.5)
+    assert page.locator("label.chip.on").filter(has_text="Malapert massif").count() == 1, "07 did not switch on"
+    r.hold(0.4)
     t = page.get_by_role("region", name="Comparison table, scrolls sideways")
     y = t.bounding_box()["y"] + page.evaluate("window.scrollY") - 120
     r.scroll_to(y, 1.3)
@@ -201,7 +203,7 @@ def clip_compare(page, r):
     m = page.get_by_role("region", name="Mast height table, scrolls sideways")
     y = m.bounding_box()["y"] + page.evaluate("window.scrollY") - 160
     r.scroll_to(y, 1.2)
-    r.hold(1.2)
+    r.hold(1.0)
 
 
 def clip_shadows(page, r):
