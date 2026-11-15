@@ -463,6 +463,11 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
   .cmp th, .cmp td { padding: 12px 12px; }
   .cmp td .num { font-size: 24px; }
   .play-row { flex-wrap: wrap; }
+  /* the time label needs the whole width on a phone, the Play button goes above it */
+  .play-row .slider { flex: 1 1 100%; }
+  /* tables scroll sideways: keep the metric / site names in view */
+  .cmp tbody th, .cmp thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--sheet); box-shadow: 1px 0 0 var(--line); }
+  .cmp tbody th { min-width: 112px; max-width: 132px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
