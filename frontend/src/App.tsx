@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { isCustom, useDataSource, useSites } from './api'
-import { aliases, hiddenRoutes, routes } from './routes'
+import { aliases, hiddenRoutes, home, routes } from './routes'
 import { useAppState } from './state'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Notice } from './components/Notice'
@@ -9,7 +9,7 @@ export default function App() {
   const { path, siteId, compareIds, compareFromUrl, setSite, setCompare, href, from, to } = useAppState()
   const sites = useSites()
   const source = useDataSource()
-  const route = [...routes, ...hiddenRoutes].find((r) => r.path === (aliases[path] ?? path)) ?? routes[0]
+  const route = [...routes, ...hiddenRoutes].find((r) => r.path === (aliases[path] ?? path)) ?? routes.find((r) => r.path === home)!
   const Page = route.component
 
   // Pick sensible defaults once, when the site list first arrives.
