@@ -6,7 +6,7 @@ import { fitModel } from './fit'
 import { sampleModelHeights } from './modelHeights'
 import { equirectField } from './heights'
 import { horizonMaskAt, MASK_STEP_DEG } from './mask'
-import { fitLine, IDENTITY_CALIBRATION, calibrateAgainst, usable } from './calibrate'
+import { fitLine, IDENTITY_CALIBRATION, calibrateAgainst, SHAPE_R, usable } from './calibrate'
 import type { MoonModel } from './modelSource'
 
 const POINTS: [number, number][] = [
@@ -191,6 +191,7 @@ describe('calibrating the model against LOLA', () => {
       pairs.push([x, 0.33 * x + 120])
     }
     const c = fitLine(pairs)
+    expect(c.method).toBe('line')
     expect(c.scale).toBeCloseTo(0.33, 6)
     expect(c.offset).toBeCloseTo(120, 3)
     expect(c.r).toBeCloseTo(1, 6)
@@ -206,9 +207,29 @@ describe('calibrating the model against LOLA', () => {
     expect(usable(c)).toBe(true)
   })
 
-  it('two sources that have nothing to do with each other are not used', () => {
-    const truth = { id: 'lola240' as const, label: 'truth', pixelM: 240, heightAt: (la: number) => 2000 * Math.sin(la / 3) }
-    const noise = { ...truth, id: 'model' as const, label: 'noise', heightAt: (la: number, lo: number) => Math.sin(la * 37.1 + lo * 11.7) * 5000 }
-    expect(usable(calibrateAgainst(noise, truth))).toBe(false)
+  it('shapes that only roughly match still give the exaggeration away', () => {
+    // what the real model does: the same landscape, three times too tall, and blurred so much that
+    // point by point it barely correlates. The line would be meaningless; the amplitude is not.
+    const truth = { id: 'lola240' as const, label: 'truth', pixelM: 240, heightAt: (la: number, lo: number) => 1500 * Math.sin(la / 2) + 1500 * Math.cos(lo / 3) }
+    // same kind of landscape and the same spread, three times too tall, but at its own
+    // wavelengths - so it barely correlates point by point, exactly like the real model
+    const blurred = {
+      ...truth,
+      id: 'model' as const,
+      label: 'model',
+      heightAt: (la: number, lo: number) => 3 * (1500 * Math.sin(la * 1.7 + 3.1) + 1500 * Math.cos(lo * 0.9 + 1.3)),
+    }
+    const c = calibrateAgainst(blurred, truth)
+    expect(c.method).toBe('amplitude')
+    expect(Math.abs(c.r)).toBeLessThan(SHAPE_R)
+    expect(c.scale).toBeGreaterThan(0.28)
+    expect(c.scale).toBeLessThan(0.4)
+    expect(c.offset).toBe(0)
+    expect(usable(c)).toBe(true)
+  })
+
+  it('a factor that makes no sense is refused', () => {
+    expect(usable({ ...IDENTITY_CALIBRATION, method: 'amplitude', scale: 100, n: 4000 })).toBe(false)
+    expect(usable({ ...IDENTITY_CALIBRATION, method: 'line', scale: 0.3, r: 0.1, n: 4000 })).toBe(false)
   })
 })

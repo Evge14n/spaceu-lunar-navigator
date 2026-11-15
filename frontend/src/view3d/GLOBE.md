@@ -16,6 +16,11 @@ Files, all under `src/view3d/`:
 | `globe/tile.ts` | the local terrain tile for any point (row 0 north, curvature included) |
 | `globe/mask.ts` | the 720-direction horizon mask for any point |
 | `globe/route.ts` | which pipeline a site id goes through |
+| `globe/modelSource.ts` | one cached load of the GLB, shared by both sheets |
+| `globe/localGround.ts` | the model's own triangles around a point, in the local frame |
+| `globe/StandOnGlobe.tsx` | sheet 04 standing on the globe: ground, sky, camera, HUD |
+| `globe/calibrate.ts` | measuring how much the model exaggerates its relief, and undoing it |
+| `globe/fit.ts` | which mesh is the globe, how to scale it, where to put the camera |
 | `globe/useCustomSite.ts` + `globe/custom.worker.ts` | the above, off the main thread, cached |
 
 Pure modules are unit tested: `frame.test.ts`, `tile.test.ts`, `route.test.ts`, and
@@ -164,3 +169,75 @@ data instead of a custom point; so does picking a point within 5 km of one. All 
 LRO LOLA / LROC data are NASA products, free to use; name the exact product the model and any
 height grid were made from (for example `LDEM_64` or the LROC WAC mosaic) in the caption, as the
 other sheets do in their footers.
+
+## Standing on the globe (sheet 04, a point of your own)
+
+A point of your own is no longer drawn on a little tile of its own: sheet 04 puts you on the model
+itself. `localGround.ts` takes the model's triangles within 45° of the point (30° on phones — all
+a camera from 2 m to a few hundred kilometres up can see), turns them into the local frame
+(x east, y up, z south) and puts the ground under your feet at the origin.
+
+- **Floating origin.** The transform runs in float64 here, once per point, and only the result is
+  written as float32. Keeping the globe at its true place and translating in the shader would
+  cancel 1 737 400 against 1 737 400 in float32: a quarter of a metre of wobble, which at eye
+  level is several degrees. The camera never leaves the origin; the globe moves under it.
+- **Depth.** One frame holds ground 2 m away and a limb 1 300 km away, so this canvas asks for a
+  **logarithmic depth buffer**. Per-frame near and far cannot cover eight orders of magnitude at
+  once, and both ends are needed in the same picture. The prepared-site scene keeps its ordinary
+  depth buffer.
+- **Where the camera's feet are.** The ray from the Moon's centre straight up is intersected with
+  the triangles, so the eye sits exactly 2 m over the surface you see, not over a resampled grid.
+- **What is not there.** Terrain does not cast shadows on terrain in this scene (the lit side is
+  the Lambert term and the curvature, which is correct for day and night but not for a mountain's
+  shadow). Nothing is added to the ground to make it look finer than the model is.
+
+## What the model really gives, measured
+
+Measured on the NASA SVS 14959 source (`Moon_NASA_LRO_8k_Topo_Small.glb`, 81.5 MB, the file the
+8 MB build is made from):
+
+| | |
+|---|---|
+| vertices / triangles | 2 021 340 / 1 015 808 |
+| mean spacing on the ground | **4.33 km** (`sqrt(4 pi R^2 / N)`, printed in the caption for whatever file is loaded) |
+| texture | 8k, about 1.3 km per texel |
+| relief in the file | −30.7 km to +31.0 km, p1 to p99 ±17 km |
+| LOLA, for comparison | −9.1 km to +10.8 km |
+
+So the model is **about three times vertically exaggerated** — it is made to be looked at. Left
+alone it would make every skyline three times too steep and every lit percentage wrong.
+
+### Undoing the exaggeration
+
+`calibrate.ts` samples the model and `data/dem240.bin` (real LOLA, 240 m, already in the project)
+at the same places over the south polar cap and compares them:
+
+- if the two shapes agree (correlation ≥ 0.5) it fits a least squares line, scale and offset;
+- if they do not — and at 4.33 km against 240 m they usually do not — it matches the **amplitude**
+  instead: `scale = sd(LOLA) / sd(model)`, offset 0, because the model's own median radius already
+  stands for the 1737.4 km sphere. Fitting a line through weakly correlated pairs would drag the
+  slope towards zero; the spread of a field is a real measurement either way.
+
+Measured on the SVS source: **scale 0.3272** (correlation 0.17, so the amplitude branch), which
+agrees with the ±31 km / ±10 km reading of the raw radii. The factor is measured once, kept in
+`localStorage`, and applied to the drawn ground *and* to the horizon mask, so the picture and the
+HUD cannot drift apart.
+
+### How well the picture and the HUD agree
+
+The skyline you see and the mask the HUD uses come from the same heights by two different roads
+(triangles vs a resampled grid). Measured on the SVS model, three azimuths per point, after
+calibration: **0.3° at the equator, 1.2° at mid latitudes**. `localGround.test.ts` holds a
+synthetic model to 0.3°.
+
+Right at the pole an equirectangular grid degenerates (its cells converge) and the two roads can
+differ by degrees — which does not arise in the app, because south of 83° S a point of your own
+goes through the LOLA 240 m path (`route.ts`), tile and all.
+
+### The orientation is still yours to confirm
+
+I tried to measure the model's orientation the same way — 288 candidate orientations (six polar
+axes × 24 spins × mirrored or not), each scored against LOLA over the polar cap. The best scored
+only 0.38, which is not enough to trust. At 4.33 km the model simply does not carry the polar
+relief that LOLA has, so this test cannot settle it. **Use the three markers above**: they are
+the way to know that a tap on the globe gives the right coordinates.
