@@ -88,6 +88,8 @@ export default function GlobePage() {
   const framing = useMemo(() => framingFor(placed), [placed])
 
   const turnTo = useCallback((lat: number, lon: number, distance: number) => {
+    // any turn, the user's included, settles the start view: late sun data must not swing it back
+    framedOnce.current = true
     focusKey.current += 1
     setFocus({ dir: dirFromLatLon(lat, normalizeLon(lon)) as [number, number, number], distance, key: focusKey.current })
   }, [])

@@ -418,6 +418,13 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
   .acc-rows .acc-bar { grid-column: 1 / -1; grid-row: 2; }
 }
 
+/* seven sheets and the team line do not share one row below 1280 px */
+@media (max-width: 1279px) {
+  .team { display: none; }
+  .cell { min-width: 0; }
+  .cell .num.big { font-size: 48px; }
+}
+
 @media (max-width: 700px) {
   :root { font-size: 15px; }
   h1 { font-size: 40px; }
@@ -499,3 +506,7 @@ input[type='range'] { width: 100%; accent-color: var(--ink); min-height: 32px; m
 
 /* a number that leans on a coarse terrain model says so, right next to itself */
 .coarse-mark { font-style: normal; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--line); padding: 0 4px; margin-left: 6px; white-space: nowrap; }
+
+@media (max-width: 340px) {
+  .tabbar a { font-size: 8.5px; }
+}

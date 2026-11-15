@@ -8,7 +8,7 @@ A web tool that compares landing sites and dates at the lunar south pole by two 
 
 ![The Map sheet of the live site: NASA average illumination map of the lunar south pole with ten candidate sites and the card of the chosen site](docs/img/site-map.png)
 
-Sheets: 00 Globe (opens by link at [#/globe](https://evge14n.github.io/spaceu-lunar-navigator/#/globe): the whole Moon from a compressed LRO model with the ten sites on it; pick a site and open the view from the ground), 01 Map, 02 Compare, 03 Timeline, 04 Horizon (3D), 05 Why, 06 Accuracy.
+Sheets: 00 Globe (the whole Moon from a compressed LRO model with the ten sites on it; pick a site and open the view from the ground), 01 Map, 02 Compare, 03 Timeline, 04 Horizon (3D), 05 Why, 06 Accuracy.
 
 ## How to run
 
