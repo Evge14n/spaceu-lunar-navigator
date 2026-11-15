@@ -142,6 +142,26 @@ export interface CustomSiteState {
  * Null siteId, or a listed site, means "nothing to do here": sheet 04 keeps its static files.
  * `needSky` is false for points the data layer already computes (see route.ts).
  */
+/**
+ * The same work the hook does, for callers outside React: the data layer asks for this when a
+ * sheet wants a point of its own that the 240 m polar grid does not cover (api/client.ts).
+ * One worker run per point, shared with the hook through the same cache.
+ */
+export function computeCustomSite(siteId: string, opts: { needSky?: boolean; samples?: number } = {}): Promise<CustomSite> {
+  const c = parseCustomId(siteId)
+  if (!c) return Promise.reject(new Error(`${siteId} is not a point of your own`))
+  const needSky = opts.needSky ?? dataPath(siteId) === 'browser-globe'
+  const n = opts.samples ?? tileSamples(typeof window !== 'undefined' && window.innerWidth < 700)
+  const key = `${siteId}|${n}|${needSky}|${modelGrid() ? 'model' : 'published'}`
+  let p = cache.get(key)
+  if (!p) {
+    p = compute(siteId, c.lat, c.lon, needSky, n)
+    p.catch(() => cache.delete(key))
+    cache.set(key, p)
+  }
+  return p
+}
+
 export function useCustomSite(siteId: string | null): CustomSiteState {
   const [state, setState] = useState<CustomSiteState>({ data: null, error: null, loading: false })
   useEffect(() => {
@@ -150,17 +170,9 @@ export function useCustomSite(siteId: string | null): CustomSiteState {
       setState({ data: null, error: null, loading: false })
       return
     }
-    const needSky = dataPath(siteId) === 'browser-globe'
-    const n = tileSamples(typeof window !== 'undefined' && window.innerWidth < 700)
-    const key = `${siteId}|${n}|${needSky}|${modelGrid() ? 'model' : 'published'}`
     let live = true
     setState({ data: null, error: null, loading: true })
-    let p = cache.get(key)
-    if (!p) {
-      p = compute(siteId, c.lat, c.lon, needSky, n)
-      p.catch(() => cache.delete(key))
-      cache.set(key, p)
-    }
+    const p = computeCustomSite(siteId)
     p.then(
       (data) => live && setState({ data, error: null, loading: false }),
       (error: Error) => live && setState({ data: null, error, loading: false }),
