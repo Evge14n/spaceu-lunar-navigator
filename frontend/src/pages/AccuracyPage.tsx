@@ -72,7 +72,7 @@ export default function AccuracyPage() {
   return (
     <div className="page accuracy">
       <PageHead
-        stamp="Sheet 06 / Three independent checks against NASA sources"
+        stamp="Sheet 06 / Six independent checks against NASA sources"
         title="How we know the numbers are right"
         lede="Every figure on this site comes from a calculation that is tested. Here is what was compared with what, and where the method stops."
       />
@@ -240,7 +240,7 @@ export default function AccuracyPage() {
           <h2>What is in the model</h2>
           <ul>
             <li>Positions of the Sun and the Earth from NASA's SPICE ephemeris DE440, libration included.</li>
-            <li>The real horizon from LOLA terrain: 5 m near the site, 20 m and 80 m further out, to 150 km, with the curvature of the Moon.</li>
+            <li>The real horizon from LOLA terrain: 5 m near the site, then 20 m, 80 m and 120 m further out, to 150 km, with the curvature of the Moon.</li>
             <li>The Sun as a disc, not a point: we report how much of it is above the hills.</li>
             <li>The view of the Earth shifted for where you stand on the Moon (parallax).</li>
           </ul>
