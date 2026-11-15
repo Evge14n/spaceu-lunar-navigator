@@ -19,12 +19,13 @@ import {
   summarize,
   timesMs,
   useSites,
-  useTimeline,
+  isCustom,
+  useTimelineAt,
   visibleFlags,
   riseSet,
   type Timeline,
 } from '../api'
-import { clampPeriod, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
+import { clampPeriod, HeightSwitch, PeriodMovedNote, PeriodPicker, SiteSelect, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
 import { dateTimeUtc, dayMon, deg, hours as fmtH, latLon, pct, siteTitle, terrainMark } from '../format'
@@ -90,11 +91,13 @@ function TimelineHead({ stamp }: { stamp: string }) {
 }
 
 export default function TimelinePage() {
-  const { siteId, setSite, from, to, setPeriod, t, setTime } = useAppState()
+  const { siteId, setSite, from, to, setPeriod, t, setTime, heightM, setHeight } = useAppState()
   const sites = useSites()
-  const tl = useTimeline(siteId)
+  const custom = !!siteId && isCustom(siteId)
+  const h = custom ? 2 : heightM
+  const tl = useTimelineAt(siteId, h)
   const site = sites.data?.find((x) => x.id === siteId)
-  const stamp = `Sheet 03 / ${siteTitle(sites.data, siteId)}${site && site.lat !== null && site.lon !== null ? ` / ${latLon(site.lat, site.lon)}` : ''}`
+  const stamp = `Sheet 03 / ${siteTitle(sites.data, siteId)}${site && site.lat !== null && site.lon !== null ? ` / ${latLon(site.lat, site.lon)}` : ''} / Instrument ${h} m above the ground`
 
   const view = useMemo(() => {
     if (!tl.data) return null
@@ -154,6 +157,7 @@ export default function TimelinePage() {
 
       <div className="toolbar">
         {sites.data && <SiteSelect sites={sites.data} value={siteId} onChange={setSite} />}
+        <HeightSwitch value={h} onChange={setHeight} disabled={custom} />
         <PeriodPicker from={view.f} to={view.e} min={view.ms[0]} max={view.ms[view.ms.length - 1]} onChange={setPeriod} presets={view.presets} />
       </div>
 

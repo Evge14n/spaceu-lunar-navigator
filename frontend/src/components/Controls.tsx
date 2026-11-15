@@ -1,9 +1,10 @@
 // Shared controls: site select, period, time slider. Plain native inputs, styled in index.css.
 
-import { useId } from 'react'
+import { useId, useLayoutEffect, useState } from 'react'
 import type { PeriodPreset, Site } from '../api'
 import { dateTimeUtc } from '../format'
 import { HOUR } from '../api'
+import { SliderTouchGuard } from './sliderGesture'
 
 export const fmtUtc = (t: number) => dateTimeUtc(t)
 const toDateInput = (t: number) => new Date(t).toISOString().slice(0, 10)
@@ -127,6 +128,9 @@ export function TimeSlider({
   const id = useId()
   const steps = Math.max(1, Math.round((to - from) / HOUR))
   const v = Math.round((Math.min(Math.max(value, from), to) - from) / HOUR)
+  // A finger scrolling the page across the slider must not move the time (see sliderGesture.ts).
+  const [guard] = useState(() => new SliderTouchGuard())
+  useLayoutEffect(() => guard.onCommit((step) => onChange(from + step * HOUR)), [guard, from, onChange])
   return (
     <div className="slider">
       <label htmlFor={id} className="label">
@@ -140,7 +144,11 @@ export function TimeSlider({
         step={1}
         value={v}
         aria-valuetext={fmtUtc(from + v * HOUR)}
-        onChange={(e) => onChange(from + Number(e.target.value) * HOUR)}
+        onPointerDown={(e) => guard.pointerDown(e.pointerType, e.clientX, e.clientY, e.pointerId, e.isPrimary)}
+        onPointerMove={(e) => guard.pointerMove(e.clientX, e.clientY, e.pointerId)}
+        onPointerUp={(e) => guard.pointerUp(e.pointerId)}
+        onPointerCancel={(e) => guard.pointerCancel(e.pointerId)}
+        onChange={(e) => guard.input(Number(e.target.value))}
       />
     </div>
   )
@@ -162,4 +170,17 @@ export function clampPeriod(from: number, to: number, ms: number[]): [number, nu
 export function PeriodMovedNote({ moved }: { moved: boolean }) {
   if (!moved) return null
   return <p className="muted small">The chosen dates are outside the computed data, so the first two weeks of the data are shown.</p>
+}
+
+/** Instrument height above the ground: 1, 2, 5 or 10 m (masks published per height for the listed sites). */
+export function HeightSwitch({ value, onChange, disabled }: { value: number; onChange: (h: number) => void; disabled?: boolean }) {
+  return (
+    <div className="seg" role="group" aria-label="Instrument height above the ground">
+      {[1, 2, 5, 10].map((h) => (
+        <button key={h} type="button" aria-pressed={value === h} disabled={disabled && h !== 2} onClick={() => onChange(h)}>
+          {h} m
+        </button>
+      ))}
+    </div>
+  )
 }
