@@ -2,7 +2,7 @@
 // Default view is at eye level, 2 m above the ground, where elevations read as they are measured.
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { indexRange, isCustom, nextTransition, riseSet, skyAt, timesMs, useHorizon, useSites, useTerrain, useTimeline } from '../api'
+import { indexRange, nextTransition, riseSet, skyAt, timesMs, useHorizon, useSites, useTerrain, useTimeline } from '../api'
 import { clampPeriod, PeriodMovedNote, SiteSelect, TimeSlider } from '../components/Controls'
 import { HorizonPanorama } from '../components/HorizonPanorama'
 import { Notice } from '../components/Notice'
@@ -10,16 +10,27 @@ import { PageHead } from '../components/PageHead'
 import { dateTimeUtc, siteTitle } from '../format'
 import { useAppState } from '../state'
 import type { CameraMode } from './Scene'
+import { dataPath } from './globe/route'
+import { useCustomSite } from './globe/useCustomSite'
 
 // three.js loads after the page frame is on screen.
 const Scene = lazy(() => import('./Scene').then((m) => ({ default: m.Scene })))
 
 export default function View3DPage() {
-  const { siteId, setSite, from, to, t, setTime } = useAppState()
+  const { siteId, setSite, from, to, t, setTime, href } = useAppState()
   const sites = useSites()
-  const tl = useTimeline(siteId)
-  const terrain = useTerrain(siteId)
-  const horizon = useHorizon(siteId)
+  // Listed sites and your own points inside the 240 m polar grid keep the data layer exactly as
+  // it was; anywhere else on the Moon the sky, the mask and the tile are computed here (route.ts).
+  const path = dataPath(siteId)
+  const apiId = path === 'browser-globe' ? null : siteId
+  const tlA = useTimeline(apiId)
+  const terrainA = useTerrain(path === 'static' ? siteId : null)
+  const horizonA = useHorizon(apiId)
+  const local = useCustomSite(path === 'static' ? null : siteId)
+  const tl = { data: tlA.data ?? local.data?.timeline ?? null, error: tlA.error ?? local.error, loading: tlA.loading || local.loading }
+  const terrain = { data: terrainA.data ?? local.data?.terrain ?? null, error: terrainA.error ?? local.error, loading: terrainA.loading || local.loading }
+  const horizon = { data: horizonA.data ?? local.data?.horizon ?? null, error: horizonA.error ?? local.error, loading: horizonA.loading || local.loading }
+  const coarse = local.data?.coarse ?? null
   const [mode, setMode] = useState<CameraMode>('site')
   const [enlarge, setEnlarge] = useState(1)
   const [look, setLook] = useState<'sun' | 'earth'>('sun')
@@ -40,13 +51,20 @@ export default function View3DPage() {
     return () => window.clearInterval(id)
   }, [playing, tt, f, e, setTime])
 
-  const custom = !!siteId && isCustom(siteId)
   const ready = !!(tl.data && terrain.data)
   const sky = tl.data ? skyAt(tl.data, tt, ms) : null
   const sunTr = tl.data ? nextTransition(tl.data, 'sun', tt, ms) : null
   const earthTr = tl.data ? nextTransition(tl.data, 'earth', tt, ms) : null
   const lookDir = sky ? (look === 'sun' ? sky.sun.dir : sky.earth.dir) : ([0, 0, -1] as [number, number, number])
   const m = terrain.data?.meta
+  const sizeKm = m ? m.size_m / 1000 : null
+  const sample = coarse?.pixelM ? (coarse.pixelM >= 1000 ? `${(coarse.pixelM / 1000).toFixed(1)} km` : `${Math.round(coarse.pixelM)} m`) : null
+  // never let a tile built from the global model read as the 20 m LOLA data of a listed site
+  const terrainCaption = !coarse
+    ? `Live 3D scene: LOLA terrain${sizeKm ? ` ${sizeKm.toFixed(0)} × ${sizeKm.toFixed(0)} km` : ''}, far hills from the horizon mask`
+    : coarse.sourceId === 'sphere'
+      ? 'No elevation model for this point: smooth sphere of 1737.4 km'
+      : `${coarse.sourceId === 'lola240' ? 'LOLA 240 m terrain' : 'Coarse terrain from the global model'}${sizeKm ? ` ${sizeKm.toFixed(1)} × ${sizeKm.toFixed(1)} km` : ''}${sample ? `, ${sample} samples` : ''}`
   // tracks on the panorama: the next 30 days from the chosen moment (a whole year is a tangle of loops)
   const range = tl.data ? indexRange(ms, tt, Math.min(e, tt + 30 * 86_400_000)) : null
   const sunWide = sky ? 2 * sky.sun.angular_radius_deg : null
@@ -62,7 +80,9 @@ export default function View3DPage() {
             ? sky.sun.el >= 0
               ? `The Sun is ${sky.sun.el.toFixed(2)}° up, ${widths.toFixed(1)} of its own widths. Every hill on the horizon matters.`
               : `The Sun is ${Math.abs(sky.sun.el).toFixed(2)}° below the level line; from a raised site it can still be seen over lower ground.`
-            : 'Real LOLA terrain around the site, the Sun and the Earth in their true directions.'
+            : path === 'static'
+              ? 'Real LOLA terrain around the site, the Sun and the Earth in their true directions.'
+              : 'Your own point: the Sun and the Earth in their true directions, the terrain as well as the published models can tell.'
         }
       />
 
@@ -80,18 +100,19 @@ export default function View3DPage() {
           <button aria-pressed={enlarge === 1} onClick={() => setEnlarge(1)}>True size</button>
           <button aria-pressed={enlarge === 5} onClick={() => setEnlarge(5)}>5× for clarity</button>
         </div>
+        <a className="btn ghost" href={href('/globe')}>
+          Pick another point
+        </a>
         <span className="hint">Drag to look around / Ctrl + wheel to zoom</span>
       </div>
 
       <section className="panel scene-panel" aria-label="3D scene">
         <div className="scene-cap label">
-          <span>Live 3D scene: LOLA terrain{m ? ` ${(m.size_m / 1000).toFixed(0)} × ${(m.size_m / 1000).toFixed(0)} km` : ''}, far hills from the horizon mask</span>
+          <span>{terrainCaption}</span>
           <span>{dateTimeUtc(tt)}</span>
         </div>
         <div className="stage">
-          {custom ? (
-            <div className="stage-loading">3D terrain is drawn for the listed sites. For your point, the whole horizon is below, computed from the 240 m grid.</div>
-          ) : terrain.error || tl.error ? (
+          {terrain.error || tl.error ? (
             <div className="stage-loading">
               <Notice tone="error" title="No 3D data for this site yet">
                 {(terrain.error ?? tl.error)?.message}
@@ -141,6 +162,15 @@ export default function View3DPage() {
         )}
       </section>
 
+      {coarse && coarse.sourceId !== 'lola240' && (
+        <Notice title={coarse.sourceId === 'sphere' ? 'This point has no terrain model' : 'Coarse terrain from the global model'}>
+          {coarse.sourceId === 'sphere'
+            ? 'The Sun and the Earth are the real ones, computed from the NASA ephemeris. The ground is a smooth sphere of 1737.4 km: nothing published in this project covers this point, so the skyline you see is the geometric horizon, not real hills.'
+            : `Heights here come from ${coarse.label}, about ${sample} per sample — hills and crater walls are real but flattened, and small ridges are missing. It is an estimate, not the LOLA 20 m data of the ten prepared sites.`}
+          {coarse.missing > 0.01 ? ` ${(coarse.missing * 100).toFixed(0)} % of the samples fell outside the model and were taken as level ground.` : ''}
+        </Notice>
+      )}
+
       <PeriodMovedNote moved={moved} />
 
       <section className="panel" aria-label="The whole horizon, unrolled">
@@ -171,6 +201,7 @@ export default function View3DPage() {
         <p className="label">
           Disc sizes: Sun {(2 * sky.sun.angular_radius_deg).toFixed(2)}° wide, Earth {(2 * sky.earth.angular_radius_deg).toFixed(1)}° wide / No atmosphere, the horizon is terrain only
           {m?.mock ? ' / synthetic terrain' : ''}
+          {coarse ? ` / ${coarse.label}` : ''}
         </p>
       )}
     </div>
