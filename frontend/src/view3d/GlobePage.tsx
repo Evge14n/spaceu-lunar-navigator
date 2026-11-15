@@ -27,6 +27,13 @@ const GlobeScene = lazy(() => import('./globe/GlobeScene'))
 
 const STORE_KEY = 'spaceu.globe.orientation'
 const COLUMNS = 3
+/** The first view: tilted south so the pole sits in the lower part of the disk... */
+const HOME_LAT = -40
+/** ...and turned to the lit side, a little west of the Sun so the relief casts shadows */
+const HOME_SUN_OFFSET = 35
+/** a focus distance of 0 means "the whole globe in the frame", whatever the shape of the stage */
+const WHOLE = 0
+const TOUCH = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
 
 /** Remembered orientation of the model, so a fix survives a reload. Storage may be blocked. */
 function loadOrientation(): { frame: ModelFrame; spin: number } {
@@ -111,16 +118,17 @@ export default function GlobePage() {
     [choose, placed],
   )
 
-  // the ten sites sit in one cluster: frame it once, as soon as we know where they are
-  useEffect(() => {
-    if (framedOnce.current || !placed.length) return
-    framedOnce.current = true
-    showPole()
-  }, [placed.length, showPole])
-
   const sunMe = useSunDirection(t)
   const sunScene = sunMe ? (meToScene(sunMe) as [number, number, number]) : null
   const sub = sunMe ? toLatLon(sunMe) : null
+  const sunLon = sub ? sub[1] : null
+
+  // start with the whole Moon in view, south pole included; "South pole" zooms in to the cluster
+  useEffect(() => {
+    if (framedOnce.current || sunLon === null) return
+    framedOnce.current = true
+    turnTo(HOME_LAT, sunLon - HOME_SUN_OFFSET, WHOLE)
+  }, [sunLon, turnTo])
 
   const ids = useMemo(() => all.map((s) => s.id), [all])
   const onListKey = (e: React.KeyboardEvent<HTMLUListElement>) => {
@@ -167,7 +175,7 @@ export default function GlobePage() {
             <div className="scene-cap label">
               <span>
                 {model.kind === 'model'
-                  ? `Model: ${model.url.split('/').pop()}, ${model.triangles.toLocaleString('en-US')} triangles`
+                  ? 'Moon model from LRO data'
                   : model.kind === 'sphere'
                     ? `Sphere stand-in, 1737.4 km radius${model.textured ? ', textured' : ''}`
                     : 'Loading the model…'}
@@ -219,14 +227,18 @@ export default function GlobePage() {
               <button type="button" onClick={showPole}>
                 South pole
               </button>
-              <button type="button" onClick={() => turnTo(0, 0, 2.8)}>
+              <button type="button" onClick={() => turnTo(0, 0, WHOLE)}>
                 Near side
               </button>
-              <button type="button" onClick={() => turnTo(0, 180, 2.8)}>
+              <button type="button" onClick={() => turnTo(0, 180, WHOLE)}>
                 Far side
               </button>
             </div>
-            <span className="hint">Drag to turn / Ctrl + wheel or pinch to zoom / tap the globe for the nearest site</span>
+            <span className="hint">
+              {TOUCH
+                ? 'Drag to turn / pinch to zoom / tap the globe for the nearest site'
+                : 'Drag to turn / Ctrl + wheel or pinch to zoom / tap the globe for the nearest site'}
+            </span>
           </div>
 
           {modelNote && <Notice title="Globe model">{modelNote} The sites, the Sun and the picking all work either way.</Notice>}

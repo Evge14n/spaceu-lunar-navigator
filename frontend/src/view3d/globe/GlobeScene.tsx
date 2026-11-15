@@ -284,6 +284,8 @@ function LabelWriter({
   useFrame(({ camera, size }) => {
     const root = host.current
     if (!root) return
+    // from far away the ten sites are one dot at the pole: name only the chosen or hovered one
+    const far = camera.position.length() > FAR_LABELS
     const items: LabelCandidate[] = []
     const seen: { el: HTMLElement; x: number; y: number }[] = []
     for (const s of sites) {
@@ -297,14 +299,16 @@ function LabelWriter({
       v.project(camera)
       const x = ((v.x + 1) / 2) * size.width
       const y = ((1 - v.y) / 2) * size.height
-      items.push({ id: s.id, x, y, front: front && v.z < 1, priority: s.id === selectedId ? 3 : s.id === hoveredId ? 2 : 1, width: el.offsetWidth || 90 })
+      const priority = s.id === selectedId ? 3 : s.id === hoveredId ? 2 : 1
+      items.push({ id: s.id, x, y, front: front && v.z < 1 && !(far && priority === 1), priority, width: el.offsetWidth || 90 })
       seen.push({ el, x, y })
     }
     const keep = pickLabels(items, { stageWidth: size.width, stageHeight: size.height })
     for (const { el, x, y } of seen) {
       const id = el.dataset.site ?? ''
       el.style.visibility = keep.has(id) ? 'visible' : 'hidden'
-      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`
+      // far away a label above the pole would hide the dots of the cluster: hang it below them
+      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, ${far ? '10px' : '-100%'})`
     }
   })
   return null
@@ -365,7 +369,9 @@ function Rig({ focus, fitKey }: { focus: { dir: [number, number, number]; distan
   const turn = useRef<{ from: THREE.Vector3; to: THREE.Vector3; t0: number } | null>(null)
   useEffect(() => {
     if (!focus || !key) return
-    const to = new THREE.Vector3(...focus.dir).multiplyScalar(focus.distance)
+    // distance 0 asks for the whole globe in the frame, as at the start
+    const cam = camera as THREE.PerspectiveCamera
+    const to = new THREE.Vector3(...focus.dir).multiplyScalar(focus.distance || cameraDistanceFor(GLOBE_RADIUS, cam.fov, aspect))
     const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (still) {
       camera.position.copy(to)
@@ -422,9 +428,12 @@ export interface GlobeSceneProps {
   onModel: (m: ModelSummary) => void
   /** relief found in the model, or null when it is a smooth ball */
   onHeights: (g: ModelGrid | null) => void
+  /** where to turn the camera; a distance of 0 means the whole globe in the frame */
   focus: { dir: [number, number, number]; distance: number; key: number } | null
 }
 
+/** beyond this camera distance (in lunar radii) only the chosen site keeps its label */
+const FAR_LABELS = 2.2
 /** how long the camera takes to swing to a chosen site */
 const TURN_MS = 600
 const TAP_PX = 8
