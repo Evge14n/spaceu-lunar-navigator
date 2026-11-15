@@ -1,8 +1,22 @@
 # The globe sheet: what it does, what the model must be, what is coarse
 
-`#/globe` is sheet 00: the whole Moon, lit by the Sun of the chosen moment. Tap anywhere (or type
-coordinates) and "Open 3D view here" opens sheet 04 standing on that point, with the same scene,
-the same HUD, the same slider and Play, the same shadows as one of the ten prepared sites.
+`#/globe` is sheet 00: the whole Moon, lit by the Sun of the chosen moment, as a **picker for the
+prepared sites**. Every site in `data/sites.json` is a marker on the globe and a card in the list;
+choosing one (marker, card, arrow keys, or a tap on bare ground, which snaps to the nearest site)
+and pressing "Open 3D view" opens sheet 04 at `#/horizon?site=<id>`, the full-quality LOLA path.
+
+The sheet makes no points of its own: the latitude and longitude inputs and the "Put the pin
+there" flow are gone. The code behind custom points is still here and still builds
+(`route.ts`, `custom.worker.ts`, `StandOnGlobe.tsx`, `localGround.ts`, `useCustomSite.ts`) - sheet
+04 uses it if a `custom:lat,lon` id arrives from a saved link - but nothing in the picker leads
+there. The rules of the picker itself (nearest site, order, framing, label collisions, keyboard)
+are pure functions in `globe/sitePicker.ts`, tested in `globe/sitePicker.test.ts`.
+
+How the cluster is framed: all ten sites sit within a few degrees of the south pole, so at globe
+scale their markers overlap. `framingFor()` measures the spread from the data (the half-angle of
+the cap that holds every site, as seen from the centre of the Moon) and solves for the camera
+distance at which that cap fills 62 % of the half-field - so the "South pole" button always
+separates them, whatever the site list says.
 
 Files, all under `src/view3d/`:
 
