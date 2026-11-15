@@ -162,6 +162,9 @@ flat pixels, and the page says how many metres a sample is.
 - Geometry decimated and compressed with meshopt:
   `npx @gltf-transform/cli optimize in.glb out.glb --compress meshopt --texture-compress webp`.
 - A global height grid, if you ship one, counts against the same 8 MB (int16 2048 × 1024 = 4 MB).
+- Shipped `moon.glb` (15.11): NASA SVS 14959 model packed by `frontend/scripts/pack_moon.mjs` -
+  welded, simplified 1 015 808 → 162 998 triangles, smooth normals, colour map 8192 → 4096 px JPEG,
+  quantised + meshopt: 81.5 MB → 3.3 MB.
 
 ## Lazy loading and phones
 
