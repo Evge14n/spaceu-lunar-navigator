@@ -63,6 +63,24 @@ const toPct = (v: View, x: number, y: number): [number, number] => [
   ((v.y1 - y) / (v.y1 - v.y0)) * 100,
 ]
 
+const COARSE = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+
+/** On a touch screen the 44 px tap areas of close sites overlap: the dot nearest the finger wins. */
+function nearestMarker(e: React.MouseEvent<HTMLButtonElement>): string | null {
+  let best: string | null = null
+  let bestD = Infinity
+  e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('.marker[data-id]').forEach((m) => {
+    const r = m.querySelector('.dot')?.getBoundingClientRect()
+    if (!r) return
+    const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2))
+    if (d < bestD) {
+      bestD = d
+      best = m.dataset.id ?? null
+    }
+  })
+  return best
+}
+
 function Markers({
   list,
   sites,
@@ -93,9 +111,10 @@ function Markers({
             aria-label={`Site ${no} ${s.name}${on ? ', selected' : ''}`}
             aria-pressed={on}
             tabIndex={-1}
+            data-id={s.id}
             onClick={(e) => {
               e.stopPropagation()
-              onPick(s.id)
+              onPick((COARSE && e.detail > 0 && nearestMarker(e)) || s.id)
             }}
           >
             <span className="dot" aria-hidden="true" />
