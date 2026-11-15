@@ -15,6 +15,9 @@ import { dataPath, parseCustomId } from './globe/route'
 import { useCustomSite } from './globe/useCustomSite'
 import type { GroundStatus } from './globe/StandOnGlobe'
 
+// a finger, not a mouse: OrbitControls zooms by pinching, there is no Ctrl + wheel
+const touch = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+
 // three.js loads after the page frame is on screen.
 const Scene = lazy(() => import('./Scene').then((m) => ({ default: m.Scene })))
 // the globe ground brings the model with it: only loaded when a point of your own is shown
@@ -185,7 +188,7 @@ export default function View3DPage() {
         <a className="btn ghost" href={href('/globe')}>
           Pick another point
         </a>
-        <span className="hint">Drag to look around / Ctrl + wheel to zoom</span>
+        <span className="hint">Drag to look around / {touch ? 'pinch' : 'Ctrl + wheel'} to zoom</span>
       </div>
 
       <section className="panel scene-panel" aria-label="3D scene" ref={scenePanel} tabIndex={-1}>

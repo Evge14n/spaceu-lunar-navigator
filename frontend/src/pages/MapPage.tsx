@@ -107,7 +107,7 @@ function Markers({
   )
 }
 
-/** 30-day strip: white = visible, ink hatching = dark/hidden. */
+/** 30-day strip: white = visible, ink hatching = dark/hidden. A strip of one kind says so in words. */
 function Strip({ tl, body, from, days, label }: { tl: Timeline; body: 'sun' | 'earth'; from: number; days: number; label: string }) {
   const ms = timesMs(tl)
   const to = from + days * 86_400_000
@@ -117,7 +117,9 @@ function Strip({ tl, body, from, days, label }: { tl: Timeline; body: 'sun' | 'e
   i1 = i1 < 0 ? ms.length - 1 : i1 - 1
   const rs = i1 >= i0 ? runs(visibleFlags(tl, body), i0, i1).filter((r) => r.value) : []
   const x = (t: number) => ((t - from) / (to - from)) * 100
-  const share = i1 >= i0 ? Math.round((rs.reduce((a, r) => a + r.i1 - r.i0 + 1, 0) / (i1 - i0 + 1)) * 100) : 0
+  const on = rs.reduce((a, r) => a + r.i1 - r.i0 + 1, 0)
+  const share = i1 >= i0 ? Math.round((on / (i1 - i0 + 1)) * 100) : 0
+  const all = i1 < i0 ? null : on === i1 - i0 + 1 ? (body === 'sun' ? 'Lit' : 'In view') : on === 0 ? (body === 'sun' ? 'Dark' : 'Hidden') : null
   return (
     <div className="strip" role="img" aria-label={`${label}: ${share} % of the next ${days} days`}>
       <svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
@@ -125,6 +127,11 @@ function Strip({ tl, body, from, days, label }: { tl: Timeline; body: 'sun' | 'e
           <rect key={r.i0} className={`strip-on ${body}`} x={x(ms[r.i0])} width={Math.max(0.3, x(ms[r.i1] + 3_600_000) - x(ms[r.i0]))} y="0" height="10" />
         ))}
       </svg>
+      {all && (
+        <span className="strip-all" aria-hidden="true">
+          {all} all {days} days
+        </span>
+      )}
     </div>
   )
 }
@@ -553,12 +560,12 @@ export default function MapPage() {
                 </div>
               ) : legend && (
                 <div className="legend label" aria-label="Illumination scale from 0 to 100 percent of time sunlit">
-                  <span>0 %</span>
+                  <span>0&nbsp;%</span>
                   <span
                     className="legend-bar"
                     style={{ background: `linear-gradient(90deg, ${legend.map((l) => `rgb(${l.grey} ${l.grey} ${l.grey}) ${l.percent}%`).join(', ')})` }}
                   />
-                  <span>100 % of time sunlit</span>
+                  <span>100&nbsp;% of time sunlit</span>
                 </div>
               )}
               <div className="scalebar label" style={{ flex: '1 1 160px', justifyContent: 'flex-end' }}>
