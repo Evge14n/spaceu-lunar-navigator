@@ -13,6 +13,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { Site, Vec3 } from '../../api'
+import { hasPosition, pickLabels, type LabelCandidate } from './sitePicker'
 import { fileExists } from './heights'
 import { sampleModelHeights } from './modelHeights'
 import type { ModelGrid } from './modelGrid'
@@ -220,7 +221,19 @@ function SphereGlobe({ texture, onTap }: { texture: THREE.Texture | null; onTap:
   )
 }
 
-function Marker({ at, color, radius = 0.012, onPick }: { at: Vec3; color: string; radius?: number; onPick?: () => void }) {
+function Marker({
+  at,
+  color,
+  radius = 0.012,
+  onPick,
+  onHover,
+}: {
+  at: Vec3
+  color: string
+  radius?: number
+  onPick?: () => void
+  onHover?: (over: boolean) => void
+}) {
   return (
     <mesh
       position={at}
@@ -232,6 +245,8 @@ function Marker({ at, color, radius = 0.012, onPick }: { at: Vec3; color: string
             }
           : undefined
       }
+      onPointerOver={onHover ? (e) => (e.stopPropagation(), onHover(true)) : undefined}
+      onPointerOut={onHover ? () => onHover(false) : undefined}
     >
       <sphereGeometry args={[radius, 12, 8]} />
       <meshBasicMaterial color={color} toneMapped={false} />
@@ -239,25 +254,60 @@ function Marker({ at, color, radius = 0.012, onPick }: { at: Vec3; color: string
   )
 }
 
-/** The picked point: a pin standing on the surface, visible from any side. */
-function Pin({ lat, lon }: { lat: number; lon: number }) {
-  const base = pointFromLatLon(lat, lon, 0, 0.005)
-  const tip = pointFromLatLon(lat, lon, 0, 0.1)
-  const mid: [number, number, number] = [(base[0] + tip[0]) / 2, (base[1] + tip[1]) / 2, (base[2] + tip[2]) / 2]
-  const quat = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dirFromLatLon(lat, lon))), [lat, lon])
+/** The chosen site: a ring lying on the ground around its marker, so it reads from any angle. */
+function SelectionRing({ lat, lon }: { lat: number; lon: number }) {
+  const quat = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...dirFromLatLon(lat, lon))), [lat, lon])
   return (
-    <group>
-      <mesh position={mid} quaternion={quat}>
-        <cylinderGeometry args={[0.004, 0.004, 0.095, 8]} />
-        <meshBasicMaterial color="#ff5a3c" toneMapped={false} />
-      </mesh>
-      <mesh position={tip}>
-        <sphereGeometry args={[0.022, 16, 12]} />
-        <meshBasicMaterial color="#ff5a3c" toneMapped={false} />
-      </mesh>
-      <Marker at={pointFromLatLon(lat, lon, 0, 0.002)} color="#ffd28a" radius={0.008} />
-    </group>
+    <mesh position={pointFromLatLon(lat, lon, 0, 0.004)} quaternion={quat}>
+      <ringGeometry args={[0.026, 0.036, 32]} />
+      <meshBasicMaterial color="#ffd166" side={THREE.DoubleSide} transparent opacity={0.95} toneMapped={false} />
+    </mesh>
   )
+}
+
+/**
+ * Site names, drawn as plain DOM over the canvas and moved every frame: crisp text, the sheet's
+ * own type, and collisions decided in screen pixels (sitePicker.ts, pickLabels).
+ */
+function LabelWriter({
+  sites,
+  selectedId,
+  hoveredId,
+  host,
+}: {
+  sites: Site[]
+  selectedId: string | null
+  hoveredId: string | null
+  host: React.RefObject<HTMLDivElement | null>
+}) {
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }) => {
+    const root = host.current
+    if (!root) return
+    const items: LabelCandidate[] = []
+    const seen: { el: HTMLElement; x: number; y: number }[] = []
+    for (const s of sites) {
+      if (!hasPosition(s)) continue
+      const el = root.querySelector<HTMLElement>(`[data-site="${s.id}"]`)
+      if (!el) continue
+      const p = pointFromLatLon(s.lat, s.lon, s.elevation_m ?? 0, 0.03)
+      v.set(p[0], p[1], p[2])
+      // the near side only: the marker must point towards the camera, not away from it
+      const front = v.dot(camera.position) > 0
+      v.project(camera)
+      const x = ((v.x + 1) / 2) * size.width
+      const y = ((1 - v.y) / 2) * size.height
+      items.push({ id: s.id, x, y, front: front && v.z < 1, priority: s.id === selectedId ? 3 : s.id === hoveredId ? 2 : 1, width: el.offsetWidth || 90 })
+      seen.push({ el, x, y })
+    }
+    const keep = pickLabels(items, { stageWidth: size.width, stageHeight: size.height })
+    for (const { el, x, y } of seen) {
+      const id = el.dataset.site ?? ''
+      el.style.visibility = keep.has(id) ? 'visible' : 'hidden'
+      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`
+    }
+  })
+  return null
 }
 
 /** Orbit with the mouse or a finger; Ctrl + wheel zooms, as on the other sheets. */
@@ -312,17 +362,37 @@ function Rig({ focus, fitKey }: { focus: { dir: [number, number, number]; distan
   }, [fitKey, aspect, camera])
 
   const key = focus?.key ?? 0
+  const turn = useRef<{ from: THREE.Vector3; to: THREE.Vector3; t0: number } | null>(null)
   useEffect(() => {
     if (!focus || !key) return
-    target.current = new THREE.Vector3(...focus.dir).multiplyScalar(focus.distance)
+    const to = new THREE.Vector3(...focus.dir).multiplyScalar(focus.distance)
+    const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (still) {
+      camera.position.copy(to)
+      controls.current?.update()
+      target.current = null
+      turn.current = null
+      return
+    }
+    turn.current = { from: camera.position.clone(), to, t0: performance.now() }
+    target.current = to
     // only a new focus request (a new key) moves the camera; dragging must not be fought
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   useFrame(() => {
-    const t = target.current
+    const t = turn.current
     if (t) {
-      camera.position.lerp(t, 0.12)
-      if (camera.position.distanceTo(t) < 1e-3) target.current = null
+      // 600 ms, ease in and out, along the shorter way round the globe
+      const k = Math.min(1, (performance.now() - t.t0) / TURN_MS)
+      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2
+      const from = t.from.clone().normalize()
+      const to = t.to.clone().normalize()
+      const dir = from.angleTo(to) < 1e-6 ? to : from.applyAxisAngle(new THREE.Vector3().crossVectors(from, to).normalize(), from.angleTo(to) * e)
+      camera.position.copy(dir.multiplyScalar(t.from.length() + (t.to.length() - t.from.length()) * e))
+      if (k >= 1) {
+        turn.current = null
+        target.current = null
+      }
     }
     controls.current?.update()
   })
@@ -341,9 +411,11 @@ export interface GlobeSceneProps {
   sunDir: [number, number, number] | null
   sites: Site[]
   selectedId: string | null
-  pick: { lat: number; lon: number } | null
-  onPick: (lat: number, lon: number) => void
+  hoveredId: string | null
+  /** a tap on bare ground chooses the listed site closest to it */
+  onPickNearest: (lat: number, lon: number) => void
   onPickSite: (id: string) => void
+  onHoverSite: (id: string | null) => void
   showOrientation: boolean
   frame: ModelFrame
   spin: number
@@ -353,10 +425,27 @@ export interface GlobeSceneProps {
   focus: { dir: [number, number, number]; distance: number; key: number } | null
 }
 
+/** how long the camera takes to swing to a chosen site */
+const TURN_MS = 600
 const TAP_PX = 8
 const TAP_MS = 600
 
-export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, onPickSite, showOrientation, frame, spin, onModel, onHeights, focus }: GlobeSceneProps) {
+export default function GlobeScene({
+  sunDir,
+  sites,
+  selectedId,
+  hoveredId,
+  onPickNearest,
+  onPickSite,
+  onHoverSite,
+  showOrientation,
+  frame,
+  spin,
+  onModel,
+  onHeights,
+  focus,
+}: GlobeSceneProps) {
+  const labelHost = useRef<HTMLDivElement>(null)
   const model = useGlobeModel()
   useEffect(() => onModel(summarize(model)), [model, onModel])
   const down = useRef<{ x: number; y: number; t: number } | null>(null)
@@ -372,7 +461,7 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
     if (!d || Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > TAP_PX || performance.now() - d.t > TAP_MS) return
     e.stopPropagation()
     const [lat, lon] = latLonFromPoint([e.point.x, e.point.y, e.point.z])
-    onPick(lat, lon)
+    onPickNearest(lat, lon)
   }
   const sun = sunDir ?? [0.6, 0.2, 0.8]
   return (
@@ -393,24 +482,58 @@ export default function GlobeScene({ sunDir, sites, selectedId, pick, onPick, on
         ) : model.kind === 'sphere' ? (
           <SphereGlobe texture={model.texture} onTap={onTap} />
         ) : null}
-        {sites.map((s) =>
-          s.lat === null || s.lon === null ? null : (
-            <Marker
-              key={s.id}
-              at={pointFromLatLon(s.lat, s.lon, s.elevation_m ?? 0, 0.006)}
-              color={s.id === selectedId ? '#ffd166' : '#7fb0f0'}
-              radius={s.id === selectedId ? 0.016 : 0.011}
-              onPick={() => onPickSite(s.id)}
-            />
-          ),
-        )}
+        {sites.map((s) => {
+          if (!hasPosition(s)) return null
+          const on = s.id === selectedId
+          const over = s.id === hoveredId
+          return (
+            <group key={s.id}>
+              {on && <SelectionRing lat={s.lat} lon={s.lon} />}
+              <Marker
+                at={pointFromLatLon(s.lat, s.lon, s.elevation_m ?? 0, 0.006)}
+                color={on ? '#ffd166' : over ? '#ffffff' : '#7fb0f0'}
+                radius={on ? 0.017 : over ? 0.014 : 0.0095}
+                onPick={() => onPickSite(s.id)}
+                onHover={(o) => onHoverSite(o ? s.id : null)}
+              />
+            </group>
+          )
+        })}
         {showOrientation &&
           ORIENTATION_MARKERS.map((m, i) => (
             <Marker key={m.label} at={pointFromLatLon(m.lat, m.lon, 0, 0.004)} color={['#6ee7a8', '#ff8fd0', '#ffe066'][i]} radius={0.02} />
           ))}
-        {pick && <Pin lat={pick.lat} lon={pick.lon} />}
+        <LabelWriter sites={sites} selectedId={selectedId} hoveredId={hoveredId} host={labelHost} />
         <Rig focus={focus} fitKey={model.kind === 'model' ? `${model.url}|${model.fit.radius}` : model.kind} />
       </Canvas>
+      <div ref={labelHost} className="globe-labels" aria-hidden="true">
+        {sites.filter(hasPosition).map((s) => (
+          <span
+            key={s.id}
+            data-site={s.id}
+            className="globe-label"
+            data-on={s.id === selectedId ? 'true' : undefined}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              visibility: 'hidden',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              padding: '2px 6px',
+              fontFamily: 'var(--f-mono)',
+              fontSize: 11,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              color: s.id === selectedId ? '#05060a' : '#e9edf2',
+              background: s.id === selectedId ? '#ffd166' : 'rgba(5, 6, 10, 0.72)',
+              border: `1px solid ${s.id === selectedId ? '#ffd166' : 'rgba(233, 237, 242, 0.35)'}`,
+            }}
+          >
+            {s.name}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
