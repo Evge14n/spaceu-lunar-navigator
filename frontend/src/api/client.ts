@@ -161,6 +161,42 @@ export function computeLocal(siteId: string): Promise<{ timeline: Timeline; hori
   return p
 }
 
+/** Light and shadow over the whole map at one moment (the "Now" layer), from one long-lived Web Worker. */
+export interface LightFrame {
+  t: number
+  /** cells per side; row 0 = top of the map */
+  m: number
+  /** lit share of the Sun's disc, 0..255 */
+  data: Uint8Array
+}
+let lightWorker: Worker | null = null
+let lightSeq = 0
+const lightWaiting = new Map<number, { resolve: (f: LightFrame) => void; reject: (e: Error) => void }>()
+
+export function computeLightNow(t: number, thin = 2): Promise<LightFrame> {
+  if (!lightWorker) {
+    lightWorker = new Worker(new URL('./local.worker.ts', import.meta.url), { type: 'module' })
+    lightWorker.onmessage = (e) => {
+      const w = lightWaiting.get(e.data.id)
+      if (!w) return
+      lightWaiting.delete(e.data.id)
+      if (e.data.error) w.reject(new DataError(e.data.error, 'dem240'))
+      else w.resolve({ t: e.data.t, m: e.data.m, data: e.data.data })
+    }
+    lightWorker.onerror = (e) => {
+      for (const w of lightWaiting.values()) w.reject(new DataError(e.message || 'calculation failed', 'dem240'))
+      lightWaiting.clear()
+      lightWorker?.terminate()
+      lightWorker = null
+    }
+  }
+  const id = ++lightSeq
+  return new Promise((resolve, reject) => {
+    lightWaiting.set(id, { resolve, reject })
+    lightWorker!.postMessage({ kind: 'light', id, t, thin, base: `${new URL(BASE + 'data/', location.href)}` })
+  })
+}
+
 export async function getTimeline(siteId: string, start?: string, end?: string): Promise<Timeline> {
   if (isCustom(siteId)) {
     const lat = customLat(siteId)
@@ -175,7 +211,12 @@ export async function getTimeline(siteId: string, start?: string, end?: string):
   return getJson<Timeline>(await staticUrl(`timeline/${siteId}.json`))
 }
 
-export async function getHorizon(siteId: string): Promise<Horizon> {
+/** Horizon mask of a site; heightM 1, 5 or 10 reads horizon/<id>_h<m>.json (the instrument on a mast), 2 the main file. */
+export async function getHorizon(siteId: string, heightM = 2): Promise<Horizon> {
+  if (heightM !== 2) {
+    if (isCustom(siteId)) throw new DataError('Other heights are published for the listed sites only', '')
+    return getJson<Horizon>(await staticUrl(`horizon/${siteId}_h${heightM}.json`))
+  }
   if (isCustom(siteId)) {
     const lat = customLat(siteId)
     if (lat !== null && lat > POLAR_GRID_LAT_LIMIT) return (await computeOnGlobe(siteId)).horizon

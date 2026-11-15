@@ -2,10 +2,11 @@
 // numbered markers at exact backend positions, an inset for the sites near the pole,
 // the index of sites (the main way to choose, also on phones), the site card and your own point.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   API_URL,
   canComputeLocally,
+  computeLightNow,
   customId,
   getIlluminationLayer,
   runs,
@@ -17,13 +18,14 @@ import {
   useValidation,
   useYearSummaries,
   visibleFlags,
+  type LightFrame,
   type Site,
   type Timeline,
 } from '../api'
-import { clampPeriod } from '../components/Controls'
+import { clampPeriod, TimeSlider } from '../components/Controls'
 import { Notice } from '../components/Notice'
 import { PageHead } from '../components/PageHead'
-import { dateUtc, dayMon, deg, hours, latLon, pct, siteNo, terrainMark } from '../format'
+import { dateTimeUtc, dateUtc, dayMon, deg, hours, latLon, pct, siteNo, terrainMark } from '../format'
 import { useAppState } from '../state'
 
 const R_KM = 1737.4
@@ -127,8 +129,66 @@ function Strip({ tl, body, from, days, label }: { tl: Timeline; body: 'sun' | 'e
   )
 }
 
+// "Now" layer colours: lit ground as the paper of the sheet, shadow as ink
+const LIT = [242, 239, 231]
+const DARK = [15, 20, 27]
+
+async function frameUrl(f: LightFrame): Promise<string> {
+  const c = document.createElement('canvas')
+  c.width = c.height = f.m
+  const g = c.getContext('2d')!
+  const img = g.createImageData(f.m, f.m)
+  for (let i = 0; i < f.data.length; i++) {
+    const w = f.data[i] / 255
+    img.data[i * 4] = DARK[0] + (LIT[0] - DARK[0]) * w
+    img.data[i * 4 + 1] = DARK[1] + (LIT[1] - DARK[1]) * w
+    img.data[i * 4 + 2] = DARK[2] + (LIT[2] - DARK[2]) * w
+    img.data[i * 4 + 3] = 255
+  }
+  g.putImageData(img, 0, 0)
+  const blob = await new Promise<Blob | null>((r) => c.toBlob(r))
+  return blob ? URL.createObjectURL(blob) : c.toDataURL()
+}
+
+/** Light and shadow over the whole map at time t. While the slider moves the previous frame stays; a new one follows when it stops. */
+function useLightLayer(on: boolean, t: number) {
+  const [frame, setFrame] = useState<{ url: string; t: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!on) return
+    let live = true
+    const id = window.setTimeout(() => {
+      setBusy(true)
+      computeLightNow(t).then(
+        async (f) => {
+          const url = await frameUrl(f)
+          if (!live) return URL.revokeObjectURL(url)
+          setFrame((old) => {
+            if (old) URL.revokeObjectURL(old.url)
+            return { url, t: f.t }
+          })
+          setError(null)
+          setBusy(false)
+        },
+        (e: Error) => {
+          if (!live) return
+          setError(e.message)
+          setBusy(false)
+        },
+      )
+    }, 250)
+    return () => {
+      live = false
+      window.clearTimeout(id)
+    }
+  }, [on, t])
+  return { frame, busy, error }
+}
+
 export default function MapPage() {
-  const { siteId, setSite, from, to, navigate, href } = useAppState()
+  const { siteId, setSite, from, to, t, setTime, navigate, href } = useAppState()
+  const [layerMode, setLayerMode] = useState<'avg' | 'now'>('avg')
   const sites = useSites()
   const layer = useAsync(getIlluminationLayer, [])
   const year = useYearSummaries()
@@ -141,6 +201,9 @@ export default function MapPage() {
     setPicked(true)
   }
   const local = useAsync(canComputeLocally, [])
+  const now = layerMode === 'now' && !!local.data
+  const light = useLightLayer(now, t)
+  const plateUrl = now ? light.frame?.url : layer.data?.url
   const canCompute = !!local.data || !!API_URL
   const customTl = useTimeline(custom ? siteId : null)
   const val = useValidation()
@@ -390,11 +453,25 @@ export default function MapPage() {
           <section className="panel map-sheet" aria-label="Map">
             <div className="map-cap label">
               <span>0° E at the top</span>
-              <span>{layer.data ? 'NASA LOLA average illumination, 240 m/px' : 'Illumination layer not published yet'}</span>
+              <span>{now ? `Light and shadow ${light.frame ? `at ${dateTimeUtc(light.frame.t)}` : 'now'}, terrain 240 m` : layer.data ? 'NASA LOLA average illumination, 240 m/px' : 'Illumination layer not published yet'}</span>
               <span>90° E →</span>
             </div>
-            <div className="plate" onClick={onPlateClick(view)} role="group" aria-label="Lunar south pole. Click to set your own point.">
-              {layer.data && <img src={layer.data.url} srcSet={layer.data.srcSet} sizes="(max-width: 700px) 100vw, 840px" fetchPriority="high" alt="Average illumination of the lunar south pole, brighter means lit for more of the time" draggable={false} />}
+            <div className="layer-row">
+              <div className="seg" role="group" aria-label="Map layer">
+                <button type="button" aria-pressed={!now} onClick={() => setLayerMode('avg')}>
+                  Average (NASA, 18.6 years)
+                </button>
+                <button type="button" aria-pressed={now} disabled={!local.data} onClick={() => setLayerMode('now')} title={local.data ? undefined : 'Needs the terrain and ephemeris files'}>
+                  Now
+                </button>
+              </div>
+              {now && <TimeSlider from={from} to={to} value={t} onChange={setTime} />}
+            </div>
+            <div className={now ? 'plate plate-now' : 'plate'} onClick={onPlateClick(view)} role="group" aria-label="Lunar south pole. Click to set your own point.">
+              {now
+                ? plateUrl && <img src={plateUrl} alt="Light and shadow at the lunar south pole at the chosen moment, light means the Sun is in view" draggable={false} />
+                : layer.data && <img src={layer.data.url} srcSet={layer.data.srcSet} sizes="(max-width: 700px) 100vw, 840px" fetchPriority="high" alt="Average illumination of the lunar south pole, brighter means lit for more of the time" draggable={false} />}
+              {now && light.busy && <span className="plate-busy label" aria-live="polite">Computing light…</span>}
               <svg className="grid" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <g fill="none" stroke="#F7F8F9" strokeOpacity="0.35" strokeWidth="0.15">
                   {rings.map((g) => (
@@ -445,9 +522,9 @@ export default function MapPage() {
                   <span className="inset-tag">
                     INSET {2 * INSET_HALF_KM} × {2 * INSET_HALF_KM} KM
                   </span>
-                  {layer.data && (
+                  {plateUrl && (
                     <img
-                      src={layer.data.url}
+                      src={plateUrl}
                       alt=""
                       draggable={false}
                       style={{
@@ -468,7 +545,13 @@ export default function MapPage() {
               )}
             </div>
             <div className="map-under">
-              {legend && (
+              {now ? (
+                <div className="legend label" aria-label="Light and shadow at the chosen moment">
+                  <span className="sw" style={{ background: `rgb(${LIT.join(' ')})` }} /> <span>Sun in view</span>
+                  <span className="sw" style={{ background: `rgb(${DARK.join(' ')})` }} /> <span>In shadow</span>
+                  <span>/ terrain 240 m, small shadows are not seen{light.error ? ` / ${light.error}` : ''}</span>
+                </div>
+              ) : legend && (
                 <div className="legend label" aria-label="Illumination scale from 0 to 100 percent of time sunlit">
                   <span>0 %</span>
                   <span

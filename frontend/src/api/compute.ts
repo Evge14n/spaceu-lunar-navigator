@@ -249,6 +249,40 @@ export function horizonAt(elevation: number[], stepDeg: number, azDeg: number): 
 }
 
 /** Hours formatted for people: "3 h", "2 d 4 h". */
+/** Share of a disc of angular radius `radius` (deg) whose centre is `el` deg up, above a line at `hor` deg. */
+export function discFraction(el: number, hor: number, radius: number): number {
+  const x = (el - hor) / radius
+  if (x >= 1) return 1
+  if (x <= -1) return 0
+  return (Math.acos(-x) + x * Math.sqrt(1 - x * x)) / Math.PI
+}
+
+/**
+ * The same timeline seen by an instrument at another height: the horizon in the direction of each body
+ * comes from that height's mask, the visible part of the Sun's disc from it (the horizon at the centre
+ * of the disc), the Earth is visible when its upper limb clears the terrain. The Sun's and the Earth's
+ * own directions change by less than 0.0001 deg between 1 and 10 m, so they are kept.
+ */
+export function atHeight(tl: Timeline, mask: { elevation_deg: number[]; step_deg: number; height_m: number }): Timeline {
+  const sunHz = tl.sun.az.map((a) => horizonAt(mask.elevation_deg, mask.step_deg, a))
+  const earthHz = tl.earth.az.map((a) => horizonAt(mask.elevation_deg, mask.step_deg, a))
+  const vf = tl.sun.el.map((e, i) => {
+    const f = discFraction(e, sunHz[i], SUN_RADIUS_DEG)
+    // a sliver never rounds down to 0 (docs/API.md)
+    return f > 0 ? Math.max(f, 0.001) : 0
+  })
+  return {
+    ...tl,
+    height_m: mask.height_m,
+    sun: { ...tl.sun, horizon_el: sunHz, visible_fraction: vf },
+    earth: {
+      ...tl.earth,
+      horizon_el: earthHz,
+      visible: tl.earth.el.map((e, i) => e + earthRadiusDeg(tl.earth.distance_km[i]) > earthHz[i]),
+    },
+  }
+}
+
 export function formatHours(h: number | null): string {
   if (h === null || Number.isNaN(h)) return 'not in data'
   if (h === Infinity) return 'not within data'
