@@ -459,7 +459,7 @@ export default function MapPage() {
               </div>
               {now && <TimeSlider from={from} to={to} value={t} onChange={setTime} />}
             </div>
-            <div className={now ? 'plate now' : 'plate'} onClick={onPlateClick(view)} role="group" aria-label="Lunar south pole. Click to set your own point.">
+            <div className={now ? 'plate plate-now' : 'plate'} onClick={onPlateClick(view)} role="group" aria-label="Lunar south pole. Click to set your own point.">
               {now
                 ? plateUrl && <img src={plateUrl} alt="Light and shadow at the lunar south pole at the chosen moment, light means the Sun is in view" draggable={false} />
                 : layer.data && <img src={layer.data.url} srcSet={layer.data.srcSet} sizes="(max-width: 700px) 100vw, 840px" fetchPriority="high" alt="Average illumination of the lunar south pole, brighter means lit for more of the time" draggable={false} />}
